@@ -1,1 +1,33 @@
+# System & IDE
+.DS_Store
+._*
+.vscode/
+.idea/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+.env
+
+# Node.js / Frontend
+node_modules/
+dist/
+build/
+coverage/
+.npm/
+*.local
+
+# Docker
+.dockerignore
+
+# Miku Data
+assets/models/*.vrm
+
+# Docs
 docs/

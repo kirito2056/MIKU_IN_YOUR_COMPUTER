@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+websockets
+numpy
+# AI 관련 라이브러리는 나중에 버전에 맞춰 추가 (torch, transformers 등)
+# 일단 기본 서버 구동용

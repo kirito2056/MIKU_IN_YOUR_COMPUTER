@@ -1,0 +1,24 @@
+services:
+  miku-backend:
+    build: ./backend
+    container_name: miku-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./assets:/app/assets
+      # 모델 캐시 등을 위해 로컬 디렉토리 마운트 권장
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # GPU Settings for Windows (Comment out for Mac)
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
