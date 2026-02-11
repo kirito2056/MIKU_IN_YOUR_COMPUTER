@@ -28,6 +28,3 @@ coverage/
 
 # Miku Data
 assets/models/*.vrm
-
-# Docs
-docs/
