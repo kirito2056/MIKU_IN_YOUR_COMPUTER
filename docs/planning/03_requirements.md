@@ -4,8 +4,8 @@
 -   **CPU**: AMD Ryzen 9 **7950X3D** (연산 & 게이밍 & WebSocket 처리).
 -   **Motherboard**: **X870E** 또는 **X670E** (Dual GPU 간섭 없는 모델, 예: ProArt/Crosshair).
 -   **GPU (Dual Setup)**:
-    -   **Primary (RTX 5080 16GB)**: Main LLM (Gemma 3 27B 4-bit), Vision AI.
-    -   **Secondary (RTX 3090 24GB)**: TTS(GPT-SoVITS), STT, 3D Rendering, Small LLM.
+    -   **Primary (RTX 5080 16GB)**: Main LLM (Gemma 3 27B 4-bit) 전용.
+    -   **Secondary (RTX 3090 24GB)**: Vision AI, TTS(GPT-SoVITS), STT, 3D Rendering, Small LLM.
 -   **RAM**: DDR5 **32GB** 이상 (권장 64GB).
 -   **Storage**:
     -   **SSD (C:)**: 시스템, 단기/중기 기억 (PostgreSQL/pgvector).

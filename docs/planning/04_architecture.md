@@ -43,8 +43,8 @@ graph TD
 -   **Protocol**: WebSocket (실시간 대화), REST (설정/상태).
 -   **Serving Engine**: **ExLlamaV2** (Maximum Performance).
 -   **Hardware Allocation**:
-    -   **GPU 0 (RTX 5080)**: Main LLM (ExLlamaV2), Vision Processing, Training.
-    -   **GPU 1 (RTX 3090)**: TTS (GPT-SoVITS), STT, 3D Rendering, Stable Diffusion.
+    -   **GPU 0 (RTX 5080)**: Main LLM (ExLlamaV2), Training.
+    -   **GPU 1 (RTX 3090)**: Vision Processing, TTS (GPT-SoVITS), STT, 3D Rendering, Stable Diffusion.
 -   **Process Mgmt**: Multiprocessing (AI 모델 별도 프로세스 격리).
 
 ### AI Services (The Cortex)

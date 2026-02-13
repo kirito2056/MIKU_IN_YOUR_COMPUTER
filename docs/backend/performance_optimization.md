@@ -431,9 +431,9 @@ class ModelManager:
     def __init__(self):
         self.loaded_models = {}
         self.model_paths = {
-            'llm': 'D:/MIKU_DATA/models/gemma-3-27b-4bit.gguf',
-            'tts': 'D:/MIKU_DATA/models/gpt-sovits-miku.pt',
-            'vision': 'D:/MIKU_DATA/models/yolo-v8.pt'
+            'llm': 'D:/MIKU_DATA/models/gemma-3-27b-4bit.gguf',  # GPU 0 (RTX 5080)
+            'tts': 'D:/MIKU_DATA/models/gpt-sovits-miku.pt',  # GPU 1 (RTX 3090)
+            'vision': 'D:/MIKU_DATA/models/yolo-v8.pt'  # GPU 1 (RTX 3090)
         }
     
     def load_model(self, model_name: str, device: str = 'cuda:0') -> torch.nn.Module:
@@ -441,12 +441,18 @@ class ModelManager:
         if model_name in self.loaded_models:
             return self.loaded_models[model_name]
         
+        # GPU 할당 결정
+        if model_name == 'llm':
+            device = 'cuda:0'  # RTX 5080 (Main LLM 전용)
+        elif model_name in ['tts', 'vision']:
+            device = 'cuda:1'  # RTX 3090 (서브 작업)
+        
         # VRAM 사용량 확인
         if device.startswith('cuda'):
             vram_used = torch.cuda.memory_allocated(device) / 1024**3  # GB
             vram_total = torch.cuda.get_device_properties(device).total_memory / 1024**3
             if vram_used / vram_total > 0.9:  # 90% 이상 사용 중
-                # 다른 모델 언로딩 필요
+                # 다른 모델 언로딩 필요 (LLM은 제외)
                 self._unload_unused_models()
         
         # 모델 로딩
@@ -457,6 +463,8 @@ class ModelManager:
     def _unload_unused_models(self):
         """사용하지 않는 모델 언로딩"""
         # 우선순위: LLM > TTS > Vision
+        # LLM은 GPU 0 (RTX 5080)에서 전용으로 사용되므로 언로딩하지 않음
+        # Vision과 TTS는 GPU 1 (RTX 3090)에서 사용되며 필요시 언로딩 가능
         priority_order = ['vision', 'tts']  # LLM은 언로딩하지 않음
         
         for model_name in priority_order:
@@ -516,7 +524,7 @@ class TaskPriority(IntEnum):
 class GPUScheduler:
     def __init__(self):
         self.gpu_0 = 'cuda:0'  # RTX 5080 (Main LLM)
-        self.gpu_1 = 'cuda:1'  # RTX 3090 (TTS, STT, Vision, SD)
+        self.gpu_1 = 'cuda:1'  # RTX 3090 (Vision AI, TTS, STT, SD)
         self.gpu_usage = {
             self.gpu_0: {'tasks': [], 'vram_used': 0},
             self.gpu_1: {'tasks': [], 'vram_used': 0}
@@ -525,9 +533,9 @@ class GPUScheduler:
     def allocate_gpu(self, task_type: TaskPriority) -> str:
         """작업 유형에 따라 GPU 할당"""
         if task_type == TaskPriority.LLM_INFERENCE:
-            return self.gpu_0  # 항상 GPU 0 사용
+            return self.gpu_0  # 항상 GPU 0 (RTX 5080) 사용 - Main LLM 전용
         
-        # 그 외 작업은 GPU 1 사용 (부하 분산)
+        # Vision, TTS, STT, SD 등 모든 서브 작업은 GPU 1 (RTX 3090) 사용
         return self.gpu_1
     
     def check_gpu_availability(self, gpu: str) -> bool:

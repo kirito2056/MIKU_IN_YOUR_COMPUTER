@@ -24,7 +24,7 @@ import argparse
 class ModelArguments:
     """모델 관련 인자"""
     model_name_or_path: str = field(
-        default="google/gemma-3-27b-it",  # Gemma 3 27B with 4-bit quantization (기본)
+        default="models",  # 로컬 모델 경로 (backend/models)
         metadata={"help": "파인튜닝할 모델 경로 또는 HuggingFace 모델명"}
     )
     use_4bit: bool = field(
@@ -154,7 +154,7 @@ def print_trainable_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
-    parser.add_argument("--model_name", type=str, default="google/gemma-3-27b-it")
+    parser.add_argument("--model_name", type=str, default="models")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_personality_chat.json")
     parser.add_argument("--output_dir", type=str, default="outputs/miku_lora")
     parser.add_argument("--num_epochs", type=int, default=3)
@@ -168,8 +168,15 @@ def main():
     
     args = parser.parse_args()
     
+    # 모델 경로 처리 (상대 경로인 경우 절대 경로로 변환)
+    model_path = args.model_name
+    if not os.path.isabs(model_path) and not model_path.startswith("google/") and not model_path.startswith("microsoft/"):
+        # 상대 경로인 경우 backend 디렉토리 기준으로 변환
+        backend_dir = Path(__file__).parent.parent
+        model_path = str(backend_dir / model_path)
+    
     print("🚀 미쿠 LoRA 파인튜닝 시작!")
-    print(f"   모델: {args.model_name}")
+    print(f"   모델: {args.model_name} (경로: {model_path})")
     print(f"   데이터셋: {args.dataset_path}")
     print(f"   출력 디렉토리: {args.output_dir}")
     
@@ -184,28 +191,73 @@ def main():
     
     # 토크나이저 로드
     print("\n📥 토크나이저 로딩 중...")
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
+    # GPU 사용 가능 여부 확인
+    has_gpu = torch.cuda.is_available()
+    if not has_gpu:
+        print("⚠️  GPU를 찾을 수 없습니다. CPU 모드로 실행됩니다.")
+        args.use_4bit = False  # CPU에서는 4-bit 양자화 사용 불가
+    
     # 양자화 설정
     bnb_config = None
-    if args.use_4bit:
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_use_double_quant=False,
-        )
+    if args.use_4bit and has_gpu:
+        try:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=False,
+                llm_int8_enable_fp32_cpu_offload=True,  # CPU 오프로드 허용
+            )
+        except Exception as e:
+            print(f"⚠️  4-bit 양자화 설정 실패: {e}")
+            print("   CPU 오프로드 모드로 전환합니다.")
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=False,
+                llm_int8_enable_fp32_cpu_offload=True,
+            )
+            # CPU 오프로드를 위한 device_map 설정
+            if device_map == "auto":
+                device_map = {"": 0 if has_gpu else "cpu"}
+    
+    if device_map == "auto" and not has_gpu:
+        device_map = "cpu"
     
     # 모델 로드
     print("📥 모델 로딩 중...")
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name,
-        quantization_config=bnb_config,
-        device_map=device_map,
-        trust_remote_code=True,
-    )
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            quantization_config=bnb_config,
+            device_map=device_map,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if has_gpu else torch.float32,
+        )
+    except ValueError as e:
+        if "CPU or the disk" in str(e) and args.use_4bit:
+            print("⚠️  GPU 메모리 부족으로 CPU 오프로드 모드로 전환합니다.")
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=False,
+                llm_int8_enable_fp32_cpu_offload=True,
+            )
+            device_map = {"": 0 if has_gpu else "cpu"}
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                quantization_config=bnb_config,
+                device_map=device_map,
+                trust_remote_code=True,
+            )
+        else:
+            raise
     
     # LoRA 설정
     print("🔧 LoRA 설정 중...")

@@ -44,9 +44,9 @@
 ## 2. 하드웨어 및 메모리 전략 (Hardware & Memory) - **[CONFIRMED]**
 
 ### 2.1. GPU 구성
--   **Primary**: **RTX 5080** (Main LLM, Vision)
--   **Secondary**: **RTX 3090** (TTS, STT, 3D Rendering) - *3060에서 업그레이드 확정*
--   **전략**: 듀얼 GPU를 적극 활용하여 Main LLM의 추론 속도를 저하시키지 않으면서 고품질 TTS/렌더링 동시 수행.
+-   **Primary**: **RTX 5080** (Main LLM 전용)
+-   **Secondary**: **RTX 3090** (Vision AI, TTS, STT, 3D Rendering) - *3060에서 업그레이드 확정*
+-   **전략**: 듀얼 GPU를 적극 활용하여 Main LLM의 추론 속도를 저하시키지 않으면서 고품질 Vision/TTS/렌더링 동시 수행. RTX 5080의 VRAM 부담을 완화하기 위해 Vision AI를 RTX 3090으로 이동.
 
 ### 2.2. 메모리 계층 (Memory Hierarchy)
 물리적 저장 장치의 특성에 맞춰 데이터를 3단계로 엄격히 분리합니다.
@@ -145,9 +145,10 @@
 
 ### 5.7. VRAM 관리 전략
 -   **기본 할당**:
-    -   **RTX 5080 (16GB)**: 언어 모델 (Gemma 3 27B 4-bit)
-    -   **RTX 3090 (24GB)**: 렌더링, 비전 모델
+    -   **RTX 5080 (16GB)**: 언어 모델 (Gemma 3 27B 4-bit) 전용
+    -   **RTX 3090 (24GB)**: Vision AI, 렌더링, TTS, STT 등 모든 서브 작업
 -   **상태**: 구현하면서 동적 할당 로직 최적화
+-   **변경사항**: Vision AI를 RTX 3090으로 이동하여 RTX 5080의 VRAM 부담 완화
 
 ### 5.8. 보안 및 프라이버시
 -   **민감 정보 처리**: 별도 처리 없음 (개인 사용 환경)
