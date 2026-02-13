@@ -24,7 +24,7 @@ import argparse
 class ModelArguments:
     """모델 관련 인자"""
     model_name_or_path: str = field(
-        default="google/gemma-2-2b-it",  # Gemma 3가 출시되면 변경
+        default="google/gemma-3-27b-it",  # Gemma 3 27B with 4-bit quantization (기본)
         metadata={"help": "파인튜닝할 모델 경로 또는 HuggingFace 모델명"}
     )
     use_4bit: bool = field(
@@ -154,7 +154,7 @@ def print_trainable_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
-    parser.add_argument("--model_name", type=str, default="google/gemma-2-2b-it")
+    parser.add_argument("--model_name", type=str, default="google/gemma-3-27b-it")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_personality_chat.json")
     parser.add_argument("--output_dir", type=str, default="outputs/miku_lora")
     parser.add_argument("--num_epochs", type=int, default=3)
@@ -163,7 +163,8 @@ def main():
     parser.add_argument("--lora_r", type=int, default=16)
     parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--max_seq_length", type=int, default=2048)
-    parser.add_argument("--use_4bit", action="store_true", default=True)
+    parser.add_argument("--use_4bit", action="store_true", default=True, help="4-bit 양자화 사용 (기본: True, 27B 모델 권장)")
+    parser.add_argument("--no_4bit", action="store_false", dest="use_4bit", help="4-bit 양자화 비활성화")
     
     args = parser.parse_args()
     

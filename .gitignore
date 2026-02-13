@@ -29,3 +29,8 @@ coverage/
 
 # Miku Data
 assets/models/*.vrm
+
+# AI Models (too large for git)
+backend/models/
+*.tar.gz
+*.safetensors

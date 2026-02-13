@@ -63,7 +63,7 @@ python finetuning/create_dataset.py
 ```bash
 cd backend/finetuning
 python train_lora.py \
-    --model_name google/gemma-2-2b-it \
+    --model_name google/gemma-3-27b-it \
     --dataset_path datasets/miku_personality_chat.json \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
@@ -72,9 +72,19 @@ python train_lora.py \
     --use_4bit
 ```
 
+**기본 설정:**
+- 모델: `google/gemma-3-27b-it` (27B 파라미터)
+- 양자화: 4-bit (VRAM 약 16-17GB 사용, RTX 5080 16GB 권장)
+
+**사용 가능한 Gemma 3 모델:**
+- `google/gemma-3-1b-it`: 1B 파라미터 (테스트용, VRAM 4GB+)
+- `google/gemma-3-4b-it`: 4B 파라미터 (VRAM 8GB+)
+- `google/gemma-3-12b-it`: 12B 파라미터 (VRAM 16GB+)
+- `google/gemma-3-27b-it`: 27B 파라미터 (기본, VRAM 16GB+ with 4-bit)
+
 ### 3.2. 주요 파라미터 설명
 
-- `--model_name`: 파인튜닝할 모델 (Gemma 3 출시 시 변경)
+- `--model_name`: 파인튜닝할 모델 (Gemma 3 모델명)
 - `--dataset_path`: 학습 데이터셋 경로
 - `--output_dir`: LoRA 어댑터 저장 경로
 - `--num_epochs`: 학습 에포크 수 (3-5 권장)
@@ -170,12 +180,21 @@ with open("merged_dataset.json", "w", encoding="utf-8") as f:
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-# 베이스 모델 로드
+# 베이스 모델 로드 (4-bit 양자화)
+from transformers import BitsAndBytesConfig
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+)
+
 base_model = AutoModelForCausalLM.from_pretrained(
-    "google/gemma-2-2b-it",
+    "google/gemma-3-27b-it",
+    quantization_config=bnb_config,
     device_map="auto"
 )
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-27b-it")
 
 # LoRA 어댑터 로드
 model = PeftModel.from_pretrained(base_model, "outputs/miku_lora")

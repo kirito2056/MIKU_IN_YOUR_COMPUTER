@@ -143,7 +143,7 @@ def main():
     parser.add_argument(
         "--base_model",
         type=str,
-        default="google/gemma-2-2b-it",
+        default="google/gemma-3-27b-it",
         help="베이스 모델 이름"
     )
     parser.add_argument(
