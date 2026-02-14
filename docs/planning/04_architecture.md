@@ -44,7 +44,7 @@ graph TD
 -   **Serving Engine**: **ExLlamaV2** (Maximum Performance).
 -   **Hardware Allocation**:
     -   **GPU 0 (RTX 5080)**: Main LLM (ExLlamaV2), Training.
-    -   **GPU 1 (RTX 3090)**: Vision Processing, TTS (GPT-SoVITS), STT, 3D Rendering, Stable Diffusion.
+    -   **GPU 1 (RTX 3090)**: Vision AI (Eye1/Eye2 정량화), TTS (GPT-SoVITS), STT, 3D Rendering, Stable Diffusion.
 -   **Process Mgmt**: Multiprocessing (AI 모델 별도 프로세스 격리).
 
 ### AI Services (The Cortex)
