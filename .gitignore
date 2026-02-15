@@ -34,3 +34,11 @@ assets/models/*.vrm
 backend/models/
 *.tar.gz
 *.safetensors
+
+# Voice / TTS training data (audio files)
+voice/**/*.wav
+voice/**/*.webm
+voice/**/*.opus
+voice/**/*.mp3
+voice/**/*.flac
+voice/**/*.m4a
