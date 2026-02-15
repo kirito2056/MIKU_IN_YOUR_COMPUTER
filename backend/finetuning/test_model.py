@@ -263,8 +263,8 @@ def main():
     parser.add_argument(
         "--base_model",
         type=str,
-        default="models",
-        help="베이스 모델 경로 (기본값: models, backend/models 폴더 사용)"
+        default="models/Gemma_27B",
+        help="베이스 모델 경로 (기본값: models/Gemma_27B, backend/models/Gemma_27B 폴더 사용)"
     )
     parser.add_argument(
         "--lora_path",

@@ -24,7 +24,7 @@ import argparse
 class ModelArguments:
     """모델 관련 인자"""
     model_name_or_path: str = field(
-        default="models",  # 로컬 모델 경로 (backend/models)
+        default="models/Gemma_27B",  # 로컬 모델 경로 (backend/models/Gemma_27B)
         metadata={"help": "파인튜닝할 모델 경로 또는 HuggingFace 모델명"}
     )
     use_4bit: bool = field(
@@ -154,7 +154,7 @@ def print_trainable_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
-    parser.add_argument("--model_name", type=str, default="models")
+    parser.add_argument("--model_name", type=str, default="models/Gemma_27B")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_personality_chat.json")
     parser.add_argument("--output_dir", type=str, default="outputs/miku_lora")
     parser.add_argument("--num_epochs", type=int, default=3)
@@ -328,6 +328,24 @@ def main():
     print("\n💾 모델 저장 중...")
     trainer.save_model()
     tokenizer.save_pretrained(args.output_dir)
+
+    # Gemma/LoRA 메타데이터 저장 (버전 관리용)
+    from datetime import datetime
+    metadata = {
+        "base_model": args.model_name,
+        "dataset_path": args.dataset_path,
+        "num_epochs": args.num_epochs,
+        "batch_size": args.batch_size,
+        "learning_rate": args.learning_rate,
+        "lora_r": args.lora_r,
+        "lora_alpha": args.lora_alpha,
+        "use_4bit": args.use_4bit,
+        "trained_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    metadata_path = Path(args.output_dir) / "metadata.json"
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+    print(f"   메타데이터 저장: {metadata_path}")
     
     print(f"\n✅ 파인튜닝 완료! 모델이 {args.output_dir}에 저장되었습니다.")
     print("\n💡 다음 단계:")
