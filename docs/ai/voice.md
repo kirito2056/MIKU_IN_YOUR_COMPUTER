@@ -23,3 +23,13 @@
 -   **Model**: GPT-SoVITS (Miku Finetuned).
 -   **Whisper Mode**: 심야 시간 속삭임.
 -   **Humming**: 유휴 상태에서 콧노래 흥얼거림.
+
+### 4.1 TTS 스트리밍 테스트
+
+**1. API 서버 실행** (스트리밍 모드)
+```powershell
+cd backend/models/GPT-SoVITS-v3
+run_tts_api.bat
+# 또는 수동 실행:
+python api.py -s SoVITS_weights_v3/MIKU_e3_s117_l32.pth -g GPT_weights_v3/MIKU-e15.ckpt -dr "참조.wav" -dt "참조텍스트" -dl ja -sm normal -mt ogg
+```
