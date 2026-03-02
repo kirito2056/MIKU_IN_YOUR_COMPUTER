@@ -16,9 +16,10 @@
 
 ---
 
-*Last Updated: 2026-02-08*
+*Last Updated: 2026-03-02*
 
 ## 📝 최근 추가 문서
 
+- **모바일 플랫폼 기획** (`planning/09_mobile_platform.md`): iOS/Android Remote Client, 외부 접속(nginx), 갤럭시 워치 역할
 - **벡터 검색 최적화** (`backend/vector_search_optimization.md`): pgvector 인덱스 전략, 검색 알고리즘, 성능 최적화
 - **성능 최적화 전략** (`backend/performance_optimization.md`): 캐싱, 배치 처리, GPU 관리, 쿼리 최적화

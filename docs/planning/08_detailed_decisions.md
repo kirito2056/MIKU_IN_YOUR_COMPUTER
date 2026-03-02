@@ -187,3 +187,8 @@
 ### Phase 4: Future
 1.  윈도우 파쿠르 (Plugin)
 2.  미쿠 일기 (Backlog)
+
+### Phase 3+ (모바일 Remote Client)
+1.  데스크톱 안정화 후 진행
+2.  Android → iOS → iPad/Mac 순서
+3.  상세: `docs/planning/09_mobile_platform.md`

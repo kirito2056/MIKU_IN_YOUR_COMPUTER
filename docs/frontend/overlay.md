@@ -19,10 +19,12 @@
     -   프레임 제한 (평소 30fps, 상호작용 시 60fps+).
     -   GPU 리소스가 게임에 우선 할당되도록 `Low Priority` 모드 지원.
 
-## 5. Multi-Platform Support (Mac/Remote)
--   **Mode**: `Standalone` (Windows) vs `Remote Client` (Mac).
--   **Remote Client Logic**:
-    -   **Vision**: Mac의 화면 (`ScreenCaptureKit`) 및 웹캠 프레임을 1fps(평상시) ~ 5fps(대화중)로 캡처하여 Windows 서버로 전송.
+## 5. Multi-Platform Support (Mac/Mobile/Remote)
+-   **Mode**: `Standalone` (Windows) vs `Remote Client` (Mac, iOS, Android, iPad).
+-   **Remote Client Logic** (상세: `docs/planning/09_mobile_platform.md`):
+    -   **Vision**: 화면 캡처 및 웹캠 프레임을 1fps(평상시) ~ 5fps(대화중)로 캡처하여 PC 서버로 전송.
+        -   Mac: `ScreenCaptureKit`
+        -   모바일: 플랫폼별 화면/웹캠 API. 웹캠은 **온/오프 토글** 지원 (프라이버시).
     -   **Audio**: 마이크 입력을 `Opus` 코덱으로 실시간 인코딩하여 전송.
-    -   **Rendering**: Windows 서버로부터 받은 감정/행동 지시(Action Packet)에 따라 로컬(Mac)에서 3D 모델 렌더링.
-    -   **No Physics**: Mac에서는 창 밟기(Parkour) 기능을 비활성화하거나, 제한적인 물리 효과만 적용.
+    -   **Rendering**: 서버로부터 받은 감정/행동 지시(Action Packet)에 따라 로컬에서 3D 모델 렌더링.
+    -   **No Physics**: Remote Client에서는 창 밟기(Parkour) 기능 비활성화 또는 제한적 적용.
