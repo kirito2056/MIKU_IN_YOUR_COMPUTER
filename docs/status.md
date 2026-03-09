@@ -2,11 +2,13 @@
 
 이 문서는 `docs/` 폴더에 정의된 기획/설계와 실제 구현된 코드베이스 간의 진행 상황을 비교하고 추적하기 위한 문서입니다.
 
+**프론트엔드 실행 환경**: Node.js 24.14.0, `npm install --legacy-peer-deps` 필요. `npm run dev` (Vite) + `npm run electron:start` (Electron) 동시 실행.
+
 ## 📊 전체 진행률 요약
 
 - **Phase 1 (Foundation)**: ~30% 진행
 - **Phase 2 (Intelligence & Personality)**: ~10% 진행
-- **Phase 3 (Body & Presence)**: 0% 진행
+- **Phase 3 (Body & Presence)**: ~40% 진행
 - **Phase 4 (Memory & Context)**: 0% 진행
 
 ---
@@ -36,9 +38,9 @@
 - [ ] **감정 모델링**: 텍스트 컨텍스트에 따른 음성 톤/감정 동적 변화 로직 미구현
 
 ### 5. Frontend (The Body)
-- [ ] **Electron 기반 환경**: 투명 윈도우, 시스템 제어 뼈대 미구현
-- [ ] **UI 컴포넌트**: React + Tailwind/Zustand 채팅 및 상태 UI 미구현
-- [ ] **3D 렌더링**: Three.js (@react-three/fiber) 연동 및 아바타 렌더링 미구현
+- [x] **Electron 기반 환경**: 투명 윈도우, 화면 전체 해상도(3440x1440) 적용, `workAreaSize` 동적 감지, 클릭 통과(Click-through) 설정 완료
+- [x] **UI 컴포넌트**: React + Vite + Zustand 의존성 설치 완료. Miku 3D Model Area(960×1440px, 우측 정렬), 대화창(400px, 폰트 20~24px) 레이아웃 구현 완료
+- [ ] **3D 렌더링**: Three.js (@react-three/fiber, @pixiv/three-vrm) 패키지 설치됨. VRM 모델 로딩 및 아바타 렌더링 미구현 (현재 placeholder 박스만 표시)
 - [ ] **오디오 재생**: Web Audio API (Spatial PannerNode) 미구현
 
 ### 6. Memory & Database
@@ -53,15 +55,15 @@
 
 ## 🎯 다음 마일스톤 (추천 작업)
 
-사용자가 언급한 정정 사항을 반영하여, **[Phase 1 ~ 2]** 단계에서 병목을 풀고 눈에 보이는 성과를 내기 위해 아래 순서로 작업을 추천합니다.
-
-1. **LLM 성능 극대화 (ExLlamaV2 도입)**
-   - 파인튜닝 전, 베이스 모델이 실시간 대화가 가능하도록 추론 엔진 최적화
-2. **파인튜닝 (LoRA) 진행 및 검증**
-   - 만들어진 데이터셋을 활용해 실제로 모델을 학습하고 억양과 성격(Personality) 부여
+1. **3D VRM 모델 로딩**
+   - `frontend/public/models/`에 VRM 파일 배치 후, placeholder 박스 대신 실제 미쿠 3D 모델 렌더링
+2. **백엔드 WebSocket 연동**
+   - FastAPI `/ws/chat` 엔드포인트와 연결하여 대화창에 실시간 채팅 응답 표시, 입력창 추가
 3. **TTS 백엔드 파이프라인 통합**
    - WebUI로 테스트 완료한 GPT-SoVITS를 FastAPI 내부로 가져와 텍스트(LLM) -> 음성(TTS) 플로우 완성
-4. **프론트엔드 (Electron) 프로토타입 생성**
-   - 투명 윈도우 껍데기를 만들어 실제 대화(텍스트+음성)가 화면에 출력되게 구현
+4. **LLM 성능 극대화 (ExLlamaV2 도입)**
+   - 파인튜닝 전, 베이스 모델이 실시간 대화가 가능하도록 추론 엔진 최적화
+5. **파인튜닝 (LoRA) 진행 및 검증**
+   - 만들어진 데이터셋을 활용해 실제로 모델을 학습하고 억양과 성격(Personality) 부여
 
-*Last Updated: 2026-03-08*
+*Last Updated: 2026-03-09*
