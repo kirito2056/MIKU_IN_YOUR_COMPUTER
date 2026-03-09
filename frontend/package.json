@@ -1,0 +1,31 @@
+{
+  "name": "miku-in-your-computer-frontend",
+  "version": "1.0.0",
+  "description": "Desktop resident AI companion frontend",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && tsc -p electron",
+    "serve": "vite preview",
+    "electron:start": "electron ."
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^2.0.0",
+    "@react-three/drei": "^9.96.1",
+    "@react-three/fiber": "^8.15.14",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.160.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/three": "^0.160.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  }
+}
