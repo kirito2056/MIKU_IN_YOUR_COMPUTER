@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState } from 'react'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { VRMLoaderPlugin, VRMExpressionPresetName } from '@pixiv/three-vrm'
-import type { VRM } from '@pixiv/three-vrm'
+import { VRMLoaderPlugin, VRMExpressionPresetName, VRMHumanBoneName } from '@pixiv/three-vrm'
+import type { VRM, VRMPose } from '@pixiv/three-vrm'
 import * as THREE from 'three'
 
 const VRM_PATH = '/models/miku_v1.vrm'
@@ -49,6 +49,59 @@ function useLookAtTarget() {
   })
 
   return targetRef.current
+}
+
+/** 자연스러운 서있기 - 호흡 + 미세한 무게 이동 */
+function useIdleBreathing(vrm: VRM | null) {
+  const time = useRef(0)
+  const tempQuat = useRef(new THREE.Quaternion())
+  const deltaQuat = useRef(new THREE.Quaternion())
+  const basePose = useRef<VRMPose | null>(null)
+
+  useFrame((_, delta) => {
+    if (!vrm?.humanoid) return
+    const humanoid = vrm.humanoid
+
+    if (!basePose.current) {
+      basePose.current = humanoid.getNormalizedPose()
+    }
+
+    time.current += delta
+    const t = time.current
+    const breath = Math.sin(t * 1.2) * 0.015
+    const sway = Math.sin(t * 0.7) * 0.008
+
+    const pose: VRMPose = { ...basePose.current }
+
+    const applyBreath = (boneName: string) => {
+      const base = basePose.current?.[boneName as keyof VRMPose]?.rotation
+      const baseQ = base ? new THREE.Quaternion().fromArray(base) : new THREE.Quaternion()
+      deltaQuat.current.setFromEuler(new THREE.Euler(breath, 0, 0))
+      tempQuat.current.copy(baseQ).multiply(deltaQuat.current)
+      pose[boneName as keyof VRMPose] = {
+        ...pose[boneName as keyof VRMPose],
+        rotation: tempQuat.current.toArray() as [number, number, number, number],
+      }
+    }
+
+    const applySway = (boneName: string) => {
+      const base = basePose.current?.[boneName as keyof VRMPose]?.rotation
+      const baseQ = base ? new THREE.Quaternion().fromArray(base) : new THREE.Quaternion()
+      deltaQuat.current.setFromEuler(new THREE.Euler(0, sway, 0))
+      tempQuat.current.copy(baseQ).multiply(deltaQuat.current)
+      pose[boneName as keyof VRMPose] = {
+        ...pose[boneName as keyof VRMPose],
+        rotation: tempQuat.current.toArray() as [number, number, number, number],
+      }
+    }
+
+    if (humanoid.getNormalizedBone(VRMHumanBoneName.Spine)) applyBreath(VRMHumanBoneName.Spine)
+    if (humanoid.getNormalizedBone(VRMHumanBoneName.Chest)) applyBreath(VRMHumanBoneName.Chest)
+    if (humanoid.getNormalizedBone(VRMHumanBoneName.UpperChest)) applyBreath(VRMHumanBoneName.UpperChest)
+    if (humanoid.getNormalizedBone(VRMHumanBoneName.Hips)) applySway(VRMHumanBoneName.Hips)
+
+    humanoid.setNormalizedPose(pose)
+  })
 }
 
 /** Idle 깜빡임 - 주기적으로 blink 표현 적용 */
@@ -101,6 +154,7 @@ export function MikuModel() {
   }
 
   useIdleBlink(vrm ?? null)
+  useIdleBreathing(vrm ?? null)
 
   useFrame((_, delta) => {
     if (vrmRef.current) {
