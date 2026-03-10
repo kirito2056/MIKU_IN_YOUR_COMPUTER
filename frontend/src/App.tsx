@@ -1,7 +1,25 @@
-import { useState, useEffect } from 'react'
+import { Suspense, useState } from 'react'
+import { Scene3D } from './components/Scene3D'
+
+function ModelLoadingFallback() {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#00ffff',
+      fontSize: '18px',
+      backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    }}>
+      Miku 로딩 중...
+    </div>
+  )
+}
 
 function App() {
-  const [message, setMessage] = useState('Hello, Miku is coming!');
+  const [message] = useState('Hello, Miku is coming!');
 
   return (
     <div style={{
@@ -10,24 +28,19 @@ function App() {
       height: '100vh',
       overflow: 'hidden',
     }}>
-      {/* 3D 모델이 들어갈 자리 (임시 박스) */}
+      {/* 3D VRM 모델 영역 */}
       <div style={{
         position: 'absolute',
         right: 0,
         bottom: 0,
         width: '960px',
         height: '1440px',
-        backgroundColor: 'rgba(0, 255, 255, 0.2)',
-        border: '2px dashed #00ffff',
         boxSizing: 'border-box',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        color: '#00ffff',
-        fontWeight: 'bold',
-        pointerEvents: 'auto', // 이 박스는 클릭 가능하게
+        pointerEvents: 'auto',
       }}>
-        Miku 3D Model Area
+        <Suspense fallback={<ModelLoadingFallback />}>
+          <Scene3D />
+        </Suspense>
       </div>
 
       {/* 대화창 */}
