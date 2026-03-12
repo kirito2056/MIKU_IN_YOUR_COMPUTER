@@ -20,6 +20,7 @@ function ModelLoadingFallback() {
 
 function App() {
   const [message] = useState('Hello, Miku is coming!');
+  console.log('[App] render');
 
   return (
     <div style={{
@@ -31,7 +32,7 @@ function App() {
       {/* 3D VRM 모델 영역 */}
       <div style={{
         position: 'absolute',
-        right: 0,
+        left: 0,
         bottom: 0,
         width: '960px',
         height: '1440px',

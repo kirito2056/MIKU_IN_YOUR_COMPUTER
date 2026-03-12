@@ -26,6 +26,11 @@ function createWindow() {
   // 클릭 통과 설정 (배경을 클릭하면 뒤에 있는 창이 클릭됨)
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
+  // 렌더러 console.log → 터미널로 전달
+  mainWindow.webContents.on('console-message', (_event, _level, message, _line, _sourceId) => {
+    console.log('[Renderer]', message);
+  });
+
   if (isDev) {
     // 개발 환경에서는 로컬 서버(Vite) URL 로드
     mainWindow.loadURL('http://localhost:5173');

@@ -11,7 +11,7 @@ export function Scene3D() {
       <ambientLight intensity={0.8} />
         <directionalLight position={[2, 4, 3]} intensity={1.2} castShadow />
         <directionalLight position={[-2, 2, 2]} intensity={0.5} />
-        <group position={[0, -0.55, 0]} scale={0.5} rotation={[0, 0, 0]}>
+        <group position={[0, -0.55, 0]} scale={0.5} rotation={[0, Math.PI, 0]}>
           <MikuModel />
         </group>
     </Canvas>
