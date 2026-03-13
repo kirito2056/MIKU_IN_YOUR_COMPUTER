@@ -20,6 +20,7 @@ function ModelLoadingFallback() {
 
 function App() {
   const [message] = useState('Hello, Miku is coming!');
+  const [currentMotion, setCurrentMotion] = useState<string | null>(null);
   console.log('[App] render');
 
   return (
@@ -40,7 +41,7 @@ function App() {
         pointerEvents: 'auto',
       }}>
         <Suspense fallback={<ModelLoadingFallback />}>
-          <Scene3D />
+          <Scene3D onMotionSelect={setCurrentMotion} />
         </Suspense>
       </div>
 
@@ -59,7 +60,14 @@ function App() {
         pointerEvents: 'auto', // 이 박스는 클릭 가능하게
         zIndex: 10,
       }}>
-        <p style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#00ffff', fontWeight: 'bold' }}>Miku</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+          <p style={{ margin: 0, fontSize: '24px', color: '#00ffff', fontWeight: 'bold' }}>Miku</p>
+          {currentMotion && (
+            <span style={{ fontSize: '12px', color: '#aaa', backgroundColor: '#333', padding: '4px 8px', borderRadius: '4px' }}>
+              Motion: {currentMotion}
+            </span>
+          )}
+        </div>
         <p style={{ margin: 0, fontSize: '20px', lineHeight: '1.5' }}>{message}</p>
       </div>
     </div>

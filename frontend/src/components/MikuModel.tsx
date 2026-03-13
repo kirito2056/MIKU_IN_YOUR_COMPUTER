@@ -7,7 +7,6 @@ import type { VRM, VRMPose } from '@pixiv/three-vrm'
 import * as THREE from 'three'
 
 const VRM_PATH = '/models/miku_v1.vrm'
-const VRMA_IDLE_PATH = '/motions/VRMA_01.vrma'
 const VRMA_ENABLED = true // miku_v1.vrm과 VRoid VRMA 호환 이슈
 
 /** T-pose → 자연스러운 A-pose (팔을 양옆으로 자연스럽게 내림) */
@@ -158,10 +157,12 @@ function useIdleBlink(vrm: VRM | null) {
   })
 }
 
-export function MikuModel() {
+export function MikuModel({ onMotionSelect }: { onMotionSelect?: (motionName: string) => void }) {
   const vrmRef = useRef<VRM | null>(null)
   const mixerRef = useRef<THREE.AnimationMixer | null>(null)
+  const currentActionRef = useRef<THREE.AnimationAction | null>(null)
   const [vrmaActive, setVrmaActive] = useState(false)
+  const [currentMotionIndex, setCurrentMotionIndex] = useState(1) // 상태로 관리해서 모션 끝날 때마다 변경
   const lookAtTarget = useLookAtTarget()
 
   const gltf = useLoader(VRMGLTFLoader, VRM_PATH) as {
@@ -179,15 +180,28 @@ export function MikuModel() {
     }
   }
 
+  // 초기 랜덤 인덱스 설정 (마운트 시 1번만)
+  useEffect(() => {
+    setCurrentMotionIndex(Math.floor(Math.random() * 7) + 1)
+  }, [])
+
   useEffect(() => {
     if (!VRMA_ENABLED || !vrm?.humanoid) {
       console.log('[VRMA] skip:', { VRMA_ENABLED, hasHumanoid: !!vrm?.humanoid })
       return
     }
-    console.log('[VRMA] 로드 시작:', VRMA_IDLE_PATH)
+
+    const motionName = `VRMA_0${currentMotionIndex}.vrma`
+    const vrmaPath = `/motions/${motionName}`
+    
+    if (onMotionSelect) {
+      onMotionSelect(motionName)
+    }
+
+    console.log('[VRMA] 로드 시작:', vrmaPath)
     const vrmaLoader = new VRMAGLTFLoader()
     vrmaLoader.load(
-      VRMA_IDLE_PATH,
+      vrmaPath,
       (vrmaGltf) => {
         console.log('[VRMA] 로드 완료:', vrmaGltf)
         const animations = vrmaGltf.userData?.vrmAnimations
@@ -200,11 +214,45 @@ export function MikuModel() {
           const vrmAnimation = animations[0]
           const clip = createVRMAnimationClip(vrmAnimation, vrmRef.current as never)
           console.log('[VRMA] clip 생성:', clip.duration, 'sec')
-          const mixer = new THREE.AnimationMixer(vrmRef.current.scene)
-          const action = mixer.clipAction(clip)
-          action.setLoop(THREE.LoopRepeat, Infinity)
-          action.play()
-          mixerRef.current = mixer
+          
+          if (!mixerRef.current) {
+            mixerRef.current = new THREE.AnimationMixer(vrmRef.current.scene)
+          }
+          const mixer = mixerRef.current
+          const newAction = mixer.clipAction(clip)
+          
+          // 반복 재생을 멈추고 한 번만 재생하도록 설정 (루프 종료 후 다른 모션 재생을 위함)
+          newAction.setLoop(THREE.LoopOnce, 1)
+          newAction.clampWhenFinished = true // 애니메이션이 끝나면 마지막 프레임에서 정지
+          
+          // 이전 모션에서 새 모션으로 0.5초 동안 부드럽게 크로스페이드
+          if (currentActionRef.current) {
+            newAction.reset()
+            newAction.play()
+            currentActionRef.current.crossFadeTo(newAction, 0.5, true)
+          } else {
+            newAction.play()
+          }
+          currentActionRef.current = newAction
+
+          // 애니메이션 종료 이벤트 리스너 추가
+          const onFinished = (e: any) => {
+            if (e.action === newAction) {
+              console.log('[VRMA] 애니메이션 종료, 다음 모션 로드 대기')
+              mixer.removeEventListener('finished', onFinished)
+              
+              // 다음 모션 랜덤하게 선택 (현재 모션과 다르게)
+              setCurrentMotionIndex(prev => {
+                let next = Math.floor(Math.random() * 7) + 1
+                while (next === prev) {
+                  next = Math.floor(Math.random() * 7) + 1
+                }
+                return next
+              })
+            }
+          }
+          mixer.addEventListener('finished', onFinished)
+
           setVrmaActive(true)
           console.log('[VRMA] 재생 시작')
         } catch (e) {
@@ -222,7 +270,18 @@ export function MikuModel() {
         setVrmaActive(false)
       }
     )
-  }, [vrm])
+    
+    // cleanup: 언마운트 시를 위해 useEffect에 따로 뺐으므로 여기선 모션 간 유지되도록 둡니다.
+  }, [vrm, currentMotionIndex, onMotionSelect])
+
+  // 컴포넌트 언마운트 시에만 믹서 정리
+  useEffect(() => {
+    return () => {
+      if (mixerRef.current) {
+        mixerRef.current.stopAllAction()
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!vrmaActive && vrm?.humanoid) {
