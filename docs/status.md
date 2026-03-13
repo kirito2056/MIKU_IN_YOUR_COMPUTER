@@ -57,8 +57,10 @@
 
 1. ~~**3D VRM 모델 로딩**~~ ✅ 완료 (2026-03-10)
    - `frontend/public/models/miku_v1.vrm` 배치, `Scene3D`/`MikuModel` 컴포넌트로 실제 미쿠 3D 모델 렌더링
-2. **백엔드 WebSocket 연동**
-   - FastAPI `/ws/chat` 엔드포인트와 연결하여 대화창에 실시간 채팅 응답 표시, 입력창 추가
+   - VRMA 모션 1~7번 랜덤 연속 재생 및 자연스러운 트랜지션(Crossfade) 적용 완료 (2026-03-12)
+2. **대화형 UI 구성 및 백엔드 WebSocket 연동**
+   - 현재 프론트엔드 대화창에 사용자 입력을 받을 수 있는 Input 필드 추가
+   - FastAPI `/ws/chat` 엔드포인트와 연결하여 대화창에 실시간 채팅 응답 표시
 3. **TTS 백엔드 파이프라인 통합**
    - WebUI로 테스트 완료한 GPT-SoVITS를 FastAPI 내부로 가져와 텍스트(LLM) -> 음성(TTS) 플로우 완성
 4. **LLM 성능 극대화 (ExLlamaV2 도입)**
@@ -66,4 +68,4 @@
 5. **파인튜닝 (LoRA) 진행 및 검증**
    - 만들어진 데이터셋을 활용해 실제로 모델을 학습하고 억양과 성격(Personality) 부여
 
-*Last Updated: 2026-03-10*
+*Last Updated: 2026-03-12*
