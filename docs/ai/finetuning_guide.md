@@ -79,8 +79,7 @@ python train_lora.py \
 **사용 가능한 Gemma 3 모델:**
 - `google/gemma-3-1b-it`: 1B 파라미터 (테스트용, VRAM 4GB+)
 - `google/gemma-3-4b-it`: 4B 파라미터 (VRAM 8GB+)
-- `google/gemma-3-12b-it`: 12B 파라미터 (VRAM 16GB+)
-- `google/gemma-3-27b-it`: 27B 파라미터 (기본, VRAM 16GB+ with 4-bit)
+- `google/gemma-3-12b-it`: 12B 파라미터 (기본, VRAM 16GB 4-bit)
 
 ### 3.2. 주요 파라미터 설명
 

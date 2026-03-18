@@ -39,14 +39,16 @@ def load_model_and_tokenizer(
     if use_4bit and has_gpu:
         # GPU VRAM 확인 (32GB 이상이면 CPU 오프로드 불필요)
         gpu_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3 if has_gpu else 0
-        use_cpu_offload = gpu_vram_gb < 24  # 24GB 미만일 때만 CPU 오프로드 사용
+        use_cpu_offload = False  # 버그 유발 방지
         
         try:
+            # 추론을 위한 더 가볍고 안정적인 양자화 설정 (compute_dtype 제한)
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.float16,
-                llm_int8_enable_fp32_cpu_offload=use_cpu_offload,  # VRAM에 따라 자동 결정
+                bnb_4bit_use_double_quant=False, # Double quant 끄기 (속도/안정성 향상)
+                llm_int8_enable_fp32_cpu_offload=False,
             )
             if use_cpu_offload:
                 print(f"   ⚠️  GPU VRAM이 {gpu_vram_gb:.1f}GB로 제한적입니다. CPU 오프로드 활성화.")
@@ -54,22 +56,7 @@ def load_model_and_tokenizer(
                 print(f"   ✅ GPU VRAM: {gpu_vram_gb:.1f}GB - CPU 오프로드 없이 실행합니다.")
         except Exception as e:
             print(f"⚠️  4-bit 양자화 설정 실패: {e}")
-            # GPU VRAM 확인
-            gpu_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3 if has_gpu else 0
-            use_cpu_offload = gpu_vram_gb < 24
-            print(f"   CPU 오프로드 모드로 전환합니다. (VRAM: {gpu_vram_gb:.1f}GB)")
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                llm_int8_enable_fp32_cpu_offload=use_cpu_offload,
-            )
-            # CPU 오프로드를 위한 device_map 설정
-            if use_cpu_offload:
-                device_map = {"": 0 if has_gpu else "cpu"}
-    elif not has_gpu:
-        device_map = "cpu"
-    
+            
     # 베이스 모델 로드
     try:
         # CPU 모드에서는 메모리 효율적인 로딩 사용
@@ -80,6 +67,9 @@ def load_model_and_tokenizer(
         if has_gpu:
             load_kwargs["torch_dtype"] = torch.float16
             load_kwargs["device_map"] = device_map
+            # CUDA 커널 충돌 방지를 위해 SDPA 강제 활성화 (Gemma 3 이슈 우회)
+            load_kwargs["attn_implementation"] = "sdpa"
+            
             if bnb_config:
                 load_kwargs["quantization_config"] = bnb_config
         else:
@@ -172,6 +162,10 @@ def generate_response(
     
     # 토크나이징
     inputs = tokenizer(input_text, return_tensors="pt")
+    
+    # Gemma 3 오류 방지를 위한 token_type_ids 추가
+    if "token_type_ids" not in inputs:
+        inputs["token_type_ids"] = torch.zeros_like(inputs["input_ids"])
     # 모델의 디바이스로 이동
     if hasattr(model, 'device'):
         inputs = inputs.to(model.device)
@@ -186,14 +180,31 @@ def generate_response(
     
     # 생성
     with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            do_sample=True,
-            pad_token_id=tokenizer.eos_token_id
-        )
+        try:
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        except RuntimeError as e:
+                if "TensorCompare.cu" in str(e):
+                    print("\n[내부 경고] Gemma 3 커널 충돌 감지됨. 안전 모드로 재시도합니다...")
+                    # 안전 모드: token_type_ids 제거 후 재시도
+                    if "token_type_ids" in inputs:
+                        del inputs["token_type_ids"]
+                    outputs = model.generate(
+                        **inputs,
+                        max_new_tokens=max_new_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        do_sample=True,
+                        pad_token_id=tokenizer.eos_token_id
+                    )
+                else:
+                    raise
     
     # 디코딩
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -261,10 +272,10 @@ def interactive_chat(model, tokenizer):
 def main():
     parser = argparse.ArgumentParser(description="파인튜닝된 모델 테스트")
     parser.add_argument(
-        "--base_model",
-        type=str,
-        default="models/Gemma_27B",
-        help="베이스 모델 경로 (기본값: models/Gemma_27B, backend/models/Gemma_27B 폴더 사용)"
+        "--base_model", 
+        type=str, 
+        default="models/Gemma_12B",
+        help="베이스 모델 경로 (기본값: models/Gemma_12B, backend/models/Gemma_12B 폴더 사용)"
     )
     parser.add_argument(
         "--lora_path",

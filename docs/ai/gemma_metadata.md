@@ -29,7 +29,7 @@ Gemma(및 Hugging Face 모델)와 관련된 메타데이터는 아래와 같이 
 
 ### 1.1. 모델 디렉토리 내 파일 (로컬 모델만)
 
-모델을 로컬에 다운로드한 경우(`backend/models/Gemma_27B/` 또는 `D:/MIKU_DATA/models/` 등), 해당 폴더 안의 JSON 파일을 직접 편집할 수 있습니다.
+모델을 로컬에 다운로드한 경우(`backend/models/Gemma_12B/` 또는 `D:/MIKU_DATA/models/` 등), 해당 폴더 안의 JSON 파일을 직접 편집할 수 있습니다.
 
 | 파일 | 용도 | 수정 시 주의 |
 |------|------|--------------|
@@ -55,7 +55,7 @@ Gemma(및 Hugging Face 모델)와 관련된 메타데이터는 아래와 같이 
 
 ```json
 {
-  "base_model": "models/Gemma_27B",
+  "base_model": "models/Gemma_12B",
   "dataset_path": "datasets/miku_personality_chat.json",
   "num_epochs": 3,
   "batch_size": 4,
@@ -77,7 +77,7 @@ Gemma(및 Hugging Face 모델)와 관련된 메타데이터는 아래와 같이 
 from pathlib import Path
 from transformers import AutoTokenizer
 
-model_path = "models/Gemma_27B"  # 또는 google/gemma-3-27b-it
+model_path = "models/Gemma_12B"  # 또는 google/gemma-3-12b-it
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 # 채팅 템플릿 변경 (필요 시)

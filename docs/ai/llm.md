@@ -2,7 +2,7 @@
 
 ## 1. 메인 모델 (Main Brain)
 -   **Model**: **Gemma 3** (Instruct/Chat tuned).
--   **Size**: 12B or 27B (RTX 5080 VRAM 용량에 맞춰 선택).
+-   **Size**: 12B or 9B (RTX 5080 16GB VRAM 용량에 맞춰 선택).
 -   **Quantization**: 4-bit / 8-bit (GGUF or EXL2) for speed.
 -   **Context Window**: 8k ~ 32k (최근 대화 + RAG 검색 결과 포함).
 -   **System Prompt**: `docs/planning/02_personality_matrix.md`의 성격 정의를 반영한 프롬프트.

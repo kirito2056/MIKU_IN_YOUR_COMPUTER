@@ -15,9 +15,9 @@ python finetuning/create_dataset.py
 ### 2. LoRA 파인튜닝 실행
 
 ```bash
-# 로컬 모델 사용 (backend/models/Gemma_27B 폴더)
+# 로컬 모델 사용 (backend/models/Gemma_12B 폴더)
 python finetuning/train_lora.py \
-    --model_name models/Gemma_27B \
+    --model_name models/Gemma_12B \
     --dataset_path datasets/miku_personality_chat.json \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
@@ -35,7 +35,7 @@ python finetuning/train_lora.py \
 ### 3. 모델 테스트
 
 ```bash
-# 성격 테스트 (로컬 모델 사용, 기본값: models/Gemma_27B)
+# 성격 테스트 (로컬 모델 사용, 기본값: models/Gemma_12B)
 python finetuning/test_model.py --mode test
 
 # 대화형 채팅

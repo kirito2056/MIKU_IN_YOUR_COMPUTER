@@ -24,7 +24,7 @@ import argparse
 class ModelArguments:
     """모델 관련 인자"""
     model_name_or_path: str = field(
-        default="models/Gemma_27B",  # 로컬 모델 경로 (backend/models/Gemma_27B)
+        default="models/Gemma_12B",  # 로컬 모델 경로 (backend/models/Gemma_12B)
         metadata={"help": "파인튜닝할 모델 경로 또는 HuggingFace 모델명"}
     )
     use_4bit: bool = field(
@@ -119,13 +119,19 @@ def load_and_prepare_dataset(
     
     def tokenize_function(examples):
         """토크나이징 함수"""
-        return tokenizer(
+        tokenized = tokenizer(
             examples["text"],
             truncation=True,
             max_length=max_seq_length,
-            padding=False,
+            padding="max_length", # 패딩 추가 (Gemma 3 요구사항)
             return_tensors=None
         )
+        
+        # Gemma 3는 학습 시 token_type_ids를 필수로 요구함
+        if "token_type_ids" not in tokenized:
+            tokenized["token_type_ids"] = [[0] * len(seq) for seq in tokenized["input_ids"]]
+            
+        return tokenized
     
     # HuggingFace Dataset 형식으로 변환
     from datasets import Dataset
@@ -154,16 +160,17 @@ def print_trainable_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
-    parser.add_argument("--model_name", type=str, default="models/Gemma_27B")
+    parser.add_argument("--model_name", type=str, default="models/Gemma_12B")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_personality_chat.json")
     parser.add_argument("--output_dir", type=str, default="outputs/miku_lora")
     parser.add_argument("--num_epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--grad_accum", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=2e-4)
     parser.add_argument("--lora_r", type=int, default=16)
     parser.add_argument("--lora_alpha", type=int, default=32)
-    parser.add_argument("--max_seq_length", type=int, default=2048)
-    parser.add_argument("--use_4bit", action="store_true", default=True, help="4-bit 양자화 사용 (기본: True, 27B 모델 권장)")
+    parser.add_argument("--max_seq_length", type=int, default=512)
+    parser.add_argument("--use_4bit", action="store_true", default=True, help="4-bit 양자화 사용 (기본: True, 12B 모델 권장)")
     parser.add_argument("--no_4bit", action="store_false", dest="use_4bit", help="4-bit 양자화 비활성화")
     
     args = parser.parse_args()
@@ -209,7 +216,7 @@ def main():
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=False,
+                bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,  # CPU 오프로드 허용
             )
         except Exception as e:
@@ -219,7 +226,7 @@ def main():
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=False,
+                bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,
             )
             # CPU 오프로드를 위한 device_map 설정
@@ -238,6 +245,8 @@ def main():
             device_map=device_map,
             trust_remote_code=True,
             torch_dtype=torch.float16 if has_gpu else torch.float32,
+            low_cpu_mem_usage=True,
+            max_memory={0: "14GB", "cpu": "20GB"} # VRAM 14GB, RAM 20GB 제한 명시 (OOM 방지)
         )
     except ValueError as e:
         if "CPU or the disk" in str(e) and args.use_4bit:
@@ -246,7 +255,7 @@ def main():
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=False,
+                bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,
             )
             device_map = {"": 0 if has_gpu else "cpu"}
@@ -255,6 +264,7 @@ def main():
                 quantization_config=bnb_config,
                 device_map=device_map,
                 trust_remote_code=True,
+                low_cpu_mem_usage=True,
             )
         else:
             raise
@@ -274,7 +284,7 @@ def main():
     
     # 모델 준비
     if args.use_4bit:
-        model = prepare_model_for_kbit_training(model)
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
     
     model = get_peft_model(model, lora_config)
     print_trainable_parameters(model)
@@ -300,7 +310,7 @@ def main():
         output_dir=args.output_dir,
         num_train_epochs=args.num_epochs,
         per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.learning_rate,
         fp16=True,
         logging_steps=10,
@@ -310,6 +320,8 @@ def main():
         lr_scheduler_type="cosine",
         warmup_steps=10,
         report_to="none",
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
     )
     
     # 트레이너 생성

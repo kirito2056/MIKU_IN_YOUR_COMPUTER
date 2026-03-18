@@ -9,7 +9,7 @@
 -   **FFmpeg**: 필수 (오디오 처리).
 
 ### Hardware Check
--   **GPU VRAM**: 최소 8GB (Qwen), 권장 16GB+ (Gemma 27B 4bit).
+-   **GPU VRAM**: 최소 8GB (Qwen), 권장 16GB+ (Gemma 12B 4bit).
 -   **Storage**: 여유 공간 100GB+ (모델 가중치 및 DB).
 
 ## 2. 설치 가이드 (Installation)

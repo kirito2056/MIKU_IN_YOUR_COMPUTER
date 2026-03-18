@@ -32,7 +32,7 @@ async def startup_event():
     """서버 시작 시 모델 로드"""
     global llm_service
     try:
-        model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma_27B")
+        model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma_12B")
         lora_path = os.getenv("LORA_PATH", None)
         use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
         
