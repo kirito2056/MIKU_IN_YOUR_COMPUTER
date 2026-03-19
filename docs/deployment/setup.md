@@ -39,7 +39,7 @@ npm run postinstall
 ```
 
 ### D. Database Init
--   PostgreSQL 설치 및 서비스 시작.
+-   PostgreSQL 17+ 설치 및 서비스 시작 (증분백업 지원).
 -   `pgvector` 익스텐션 활성화: `CREATE EXTENSION vector;`
 -   `.env` 파일에 DB 접속 정보 설정.
 

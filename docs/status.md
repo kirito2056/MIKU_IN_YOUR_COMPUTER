@@ -44,7 +44,7 @@
 - [ ] **오디오 재생**: Web Audio API (Spatial PannerNode) 미구현
 
 ### 6. Memory & Database
-- [ ] **데이터베이스 셋업**: PostgreSQL 16+ 구동 환경 미구현
+- [ ] **데이터베이스 셋업**: PostgreSQL 17+ 구동 환경 미구현
 - [ ] **장/단기 기억 시스템**: `pgvector` 기반 벡터 검색 및 RAG 파이프라인 미구현
 
 ### 7. Vision / Hardware (The Eyes)

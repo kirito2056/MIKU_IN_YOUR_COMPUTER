@@ -55,7 +55,7 @@ graph TD
 -   **Generation**: `Diffusers` (Stable Diffusion).
 
 ### Storage (The Memory)
--   **Database**: **PostgreSQL 16+** (Integrated Vector DB).
+-   **Database**: **PostgreSQL 17+** (Integrated Vector DB, 증분백업 지원).
 -   **Extensions**: `pgvector` (Vector Search).
 -   **Storage Tiering**:
     -   **L1 (RAM)**: Short-term Context.

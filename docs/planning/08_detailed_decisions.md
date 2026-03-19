@@ -28,10 +28,11 @@
 -   **상태**: 확정
 
 ### 1.4. Vector DB
--   **결정**: **PostgreSQL + pgvector**
+-   **결정**: **PostgreSQL 17+ + pgvector**
 -   **이유**:
     -   별도의 Vector DB 솔루션(Chroma 등)을 띄우는 오버헤드 없이, 관계형 데이터(기억 메타데이터)와 벡터 데이터를 하나의 쿼리로 고속 처리.
     -   로컬 환경에서의 I/O 병목 최소화 및 관리 효율성 증대.
+    -   PostgreSQL 17 이상에서 지원하는 증분백업(Incremental Backup) 활용.
 -   **상태**: 확정
 
 ### 1.5. Knowledge Graph
