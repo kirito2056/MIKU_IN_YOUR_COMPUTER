@@ -1,5 +1,6 @@
 import { Suspense, useState } from 'react'
 import { Scene3D } from './components/Scene3D'
+import { ChatPanel } from './components/ChatPanel'
 
 function ModelLoadingFallback() {
   return (
@@ -19,9 +20,7 @@ function ModelLoadingFallback() {
 }
 
 function App() {
-  const [message] = useState('Hello, Miku is coming!');
-  const [currentMotion, setCurrentMotion] = useState<string | null>(null);
-  console.log('[App] render');
+  const [currentMotion, setCurrentMotion] = useState<string | null>(null)
 
   return (
     <div style={{
@@ -45,31 +44,7 @@ function App() {
         </Suspense>
       </div>
 
-      {/* 대화창 */}
-      <div style={{
-        position: 'absolute',
-        bottom: '40px',
-        right: '40px',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        color: 'white',
-        padding: '25px',
-        borderRadius: '15px',
-        width: '400px',
-        minHeight: '120px',
-        fontFamily: 'sans-serif',
-        pointerEvents: 'auto', // 이 박스는 클릭 가능하게
-        zIndex: 10,
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-          <p style={{ margin: 0, fontSize: '24px', color: '#00ffff', fontWeight: 'bold' }}>Miku</p>
-          {currentMotion && (
-            <span style={{ fontSize: '12px', color: '#aaa', backgroundColor: '#333', padding: '4px 8px', borderRadius: '4px' }}>
-              Motion: {currentMotion}
-            </span>
-          )}
-        </div>
-        <p style={{ margin: 0, fontSize: '20px', lineHeight: '1.5' }}>{message}</p>
-      </div>
+      <ChatPanel currentMotion={currentMotion} />
     </div>
   )
 }
