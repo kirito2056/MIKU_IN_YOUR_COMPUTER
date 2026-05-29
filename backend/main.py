@@ -1,7 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from typing import Optional
+import asyncio
+import base64
 import sys
 import os
 from dotenv import load_dotenv
@@ -9,8 +12,9 @@ from dotenv import load_dotenv
 # 환경 변수 로드
 load_dotenv()
 
-# LLM 서비스 임포트
+# 서비스 임포트
 from services.llm_service import get_llm_service, LLMService
+from services.tts_service import get_tts_service, TTSService, TTSServiceError
 
 app = FastAPI(title="MIKU IN YOUR COMPUTER (Backend)")
 
@@ -23,24 +27,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 전역 LLM 서비스 인스턴스
+# 전역 서비스 인스턴스
 llm_service: Optional[LLMService] = None
+tts_service: Optional[TTSService] = None
+
+TTS_WS_CHUNK_BYTES = 48 * 1024
 
 
 @app.on_event("startup")
 async def startup_event():
     """서버 시작 시 모델 로드"""
-    global llm_service
+    global llm_service, tts_service
+    tts_service = get_tts_service()
+    tts_status = tts_service.health_status()
+    if tts_status["ready"]:
+        print(f"✅ TTS 서비스 준비 완료 ({tts_service.base_url})")
+    elif tts_status["configured"]:
+        print(f"⚠️  TTS 참조 음원 OK, API 미연결 ({tts_service.base_url})")
+    else:
+        print("⚠️  TTS 참조 음원 미설정 (음성 합성 비활성)")
+
     try:
         model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma_12B")
         lora_path = os.getenv("LORA_PATH", None)
         use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
-        
+
         print(f"🚀 LLM 서비스 초기화 중...")
         print(f"   모델 경로: {model_path}")
         if lora_path:
             print(f"   LoRA 경로: {lora_path}")
-        
+
         llm_service = get_llm_service(
             model_path=model_path,
             lora_path=lora_path,
@@ -61,20 +77,56 @@ async def shutdown_event():
         llm_service = None
 
 
+async def _stream_tts_over_ws(websocket: WebSocket, text: str) -> None:
+    """LLM 응답 텍스트를 TTS로 합성해 WebSocket으로 base64 청크 전송."""
+    if tts_service is None or not tts_service.is_configured():
+        await websocket.send_json({
+            "type": "tts_error",
+            "message": "TTS가 설정되지 않았습니다.",
+        })
+        return
+
+    try:
+        audio = await asyncio.to_thread(tts_service.synthesize, text)
+    except TTSServiceError as e:
+        await websocket.send_json({"type": "tts_error", "message": str(e)})
+        return
+
+    if not audio:
+        await websocket.send_json({
+            "type": "tts_error",
+            "message": "TTS 결과가 비어 있습니다.",
+        })
+        return
+
+    await websocket.send_json({"type": "audio_start", "format": "ogg"})
+    for i in range(0, len(audio), TTS_WS_CHUNK_BYTES):
+        chunk = audio[i : i + TTS_WS_CHUNK_BYTES]
+        await websocket.send_json({
+            "type": "audio_chunk",
+            "data": base64.b64encode(chunk).decode("ascii"),
+        })
+    await websocket.send_json({"type": "audio_end"})
+
+
 @app.get("/")
 async def root():
+    tts_ready = tts_service is not None and tts_service.health_status()["ready"]
     return {
         "message": "Miku Backend is running!",
         "platform": sys.platform,
-        "model_loaded": llm_service is not None and llm_service._is_loaded
+        "model_loaded": llm_service is not None and llm_service._is_loaded,
+        "tts_ready": tts_ready,
     }
 
 
 @app.get("/health")
 async def health_check():
+    tts_status = tts_service.health_status() if tts_service else {"ready": False}
     return {
         "status": "healthy",
-        "model_loaded": llm_service is not None and llm_service._is_loaded
+        "model_loaded": llm_service is not None and llm_service._is_loaded,
+        "tts": tts_status,
     }
 
 
@@ -92,6 +144,11 @@ class ChatResponse(BaseModel):
     model_loaded: bool
 
 
+class TTSRequest(BaseModel):
+    """TTS 합성 요청"""
+    text: str = Field(..., min_length=1)
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """REST API 채팅 엔드포인트"""
@@ -100,7 +157,7 @@ async def chat_endpoint(request: ChatRequest):
             status_code=503,
             detail="모델이 로드되지 않았습니다. 서버 로그를 확인하세요."
         )
-    
+
     try:
         response = llm_service.chat(
             request.message,
@@ -116,11 +173,37 @@ async def chat_endpoint(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"응답 생성 실패: {str(e)}")
 
 
+@app.get("/api/tts/health")
+async def tts_health():
+    """GPT-SoVITS API 및 참조 음원 상태"""
+    if tts_service is None:
+        return {"configured": False, "api_reachable": False, "ready": False}
+    return tts_service.health_status()
+
+
+@app.post("/api/tts/synthesize")
+async def tts_synthesize(request: TTSRequest):
+    """텍스트 → OGG 오디오 스트리밍 (GPT-SoVITS api.py 필요)"""
+    if tts_service is None or not tts_service.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="TTS가 설정되지 않았습니다. TTS_REF_WAV_PATH 또는 sliced.list 확인.",
+        )
+
+    try:
+        def iter_audio():
+            yield from tts_service.synthesize_stream(request.text)
+
+        return StreamingResponse(iter_audio(), media_type="audio/ogg")
+    except TTSServiceError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket 채팅 엔드포인트"""
     await websocket.accept()
-    
+
     if llm_service is None or not llm_service._is_loaded:
         await websocket.send_json({
             "type": "error",
@@ -128,23 +211,22 @@ async def websocket_endpoint(websocket: WebSocket):
         })
         await websocket.close()
         return
-    
+
     try:
         while True:
-            # 메시지 수신
             data = await websocket.receive_json()
-            
-            if data.get("type") == "chat":
+            msg_type = data.get("type")
+
+            if msg_type == "chat":
                 user_message = data.get("message", "")
-                
+
                 if not user_message:
                     await websocket.send_json({
                         "type": "error",
                         "message": "메시지가 비어있습니다."
                     })
                     continue
-                
-                # 응답 생성
+
                 try:
                     response = llm_service.chat(
                         user_message,
@@ -152,20 +234,34 @@ async def websocket_endpoint(websocket: WebSocket):
                         temperature=data.get("temperature", 0.7),
                         top_p=data.get("top_p", 0.9)
                     )
-                    
+
                     await websocket.send_json({
                         "type": "response",
                         "message": response
                     })
+
+                    if data.get("with_tts"):
+                        await _stream_tts_over_ws(websocket, response)
+
                 except Exception as e:
                     await websocket.send_json({
                         "type": "error",
                         "message": f"응답 생성 실패: {str(e)}"
                     })
-            
-            elif data.get("type") == "ping":
+
+            elif msg_type == "tts":
+                text = data.get("text", "").strip()
+                if not text:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "텍스트가 비어있습니다."
+                    })
+                    continue
+                await _stream_tts_over_ws(websocket, text)
+
+            elif msg_type == "ping":
                 await websocket.send_json({"type": "pong"})
-                
+
     except WebSocketDisconnect:
         print("WebSocket 연결 종료")
     except Exception as e:
@@ -175,7 +271,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "type": "error",
                 "message": str(e)
             })
-        except:
+        except Exception:
             pass
 
 if __name__ == "__main__":

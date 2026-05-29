@@ -30,7 +30,8 @@ function nextId() {
 }
 
 export function ChatPanel({ currentMotion }: ChatPanelProps) {
-  const { status, statusMessage, sendMessage } = useChatWebSocket()
+  const { status, statusMessage, sendMessage, isSpeaking, ttsError } =
+    useChatWebSocket()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -39,12 +40,16 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
     },
   ])
   const [input, setInput] = useState('')
+  const [withTts, setWithTts] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const historyRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const canSend =
-    status === 'connected' && !isSending && input.trim().length > 0
+    status === 'connected' &&
+    !isSending &&
+    !isSpeaking &&
+    input.trim().length > 0
 
   useEffect(() => {
     const el = historyRef.current
@@ -65,7 +70,7 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
     ])
 
     try {
-      const reply = await sendMessage(text)
+      const reply = await sendMessage(text, { withTts })
       setMessages((prev) => [
         ...prev,
         { id: nextId(), role: 'assistant', content: reply },
@@ -81,7 +86,7 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
       setIsSending(false)
       inputRef.current?.focus()
     }
-  }, [input, isSending, sendMessage, status])
+  }, [input, isSending, sendMessage, status, withTts])
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -231,6 +236,37 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
             미쿠가 생각 중…
           </p>
         )}
+        {isSpeaking && (
+          <p style={{ margin: 0, fontSize: '16px', color: '#7dd3fc' }}>
+            미쿠가 말하는 중…
+          </p>
+        )}
+        {ttsError && (
+          <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#fca5a5' }}>
+            TTS: {ttsError}
+          </p>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '8px',
+          fontSize: '13px',
+          color: '#aaa',
+        }}
+      >
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={withTts}
+            onChange={(e) => setWithTts(e.target.checked)}
+            disabled={isSending || isSpeaking}
+          />
+          음성(TTS)
+        </label>
       </div>
 
       <form onSubmit={onSubmit} style={{ display: 'flex', gap: '8px' }}>
@@ -244,7 +280,7 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
               ? '메시지 입력 (Enter 전송)'
               : '백엔드 연결 대기 중…'
           }
-          disabled={status !== 'connected' || isSending}
+          disabled={status !== 'connected' || isSending || isSpeaking}
           rows={2}
           style={{
             flex: 1,

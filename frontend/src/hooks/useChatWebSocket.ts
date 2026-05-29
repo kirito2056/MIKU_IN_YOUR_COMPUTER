@@ -4,6 +4,7 @@ import {
   WS_RECONNECT_INTERVAL_MS,
   WS_RECONNECT_MAX,
 } from '../config'
+import { playOggFromBase64Chunks } from '../utils/playAudio'
 
 export type ConnectionStatus =
   | 'connecting'
@@ -15,6 +16,14 @@ type ServerMessage =
   | { type: 'response'; message: string }
   | { type: 'error'; message: string }
   | { type: 'pong' }
+  | { type: 'audio_start'; format: string }
+  | { type: 'audio_chunk'; data: string }
+  | { type: 'audio_end' }
+  | { type: 'tts_error'; message: string }
+
+type SendOptions = {
+  withTts?: boolean
+}
 
 export function useChatWebSocket() {
   const wsRef = useRef<WebSocket | null>(null)
@@ -22,10 +31,13 @@ export function useChatWebSocket() {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingResolve = useRef<((text: string) => void) | null>(null)
   const pendingReject = useRef<((err: Error) => void) | null>(null)
+  const audioChunksRef = useRef<string[]>([])
   const unmounted = useRef(false)
 
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const [statusMessage, setStatusMessage] = useState('연결 중…')
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [ttsError, setTtsError] = useState<string | null>(null)
 
   const clearPending = useCallback((err?: Error) => {
     if (err && pendingReject.current) {
@@ -33,6 +45,24 @@ export function useChatWebSocket() {
     }
     pendingResolve.current = null
     pendingReject.current = null
+  }, [])
+
+  const finishAudio = useCallback(async () => {
+    const chunks = audioChunksRef.current
+    audioChunksRef.current = []
+    if (chunks.length === 0) {
+      setIsSpeaking(false)
+      return
+    }
+    try {
+      await playOggFromBase64Chunks(chunks)
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : '오디오 재생에 실패했습니다.'
+      setTtsError(msg)
+    } finally {
+      setIsSpeaking(false)
+    }
   }, [])
 
   const connect = useCallback(() => {
@@ -71,6 +101,29 @@ export function useChatWebSocket() {
         return
       }
 
+      if (data.type === 'audio_start') {
+        audioChunksRef.current = []
+        setIsSpeaking(true)
+        setTtsError(null)
+        return
+      }
+
+      if (data.type === 'audio_chunk') {
+        audioChunksRef.current.push(data.data)
+        return
+      }
+
+      if (data.type === 'audio_end') {
+        void finishAudio()
+        return
+      }
+
+      if (data.type === 'tts_error') {
+        setIsSpeaking(false)
+        setTtsError(data.message)
+        return
+      }
+
       if (data.type === 'error') {
         setStatus('error')
         setStatusMessage(data.message)
@@ -86,6 +139,8 @@ export function useChatWebSocket() {
       if (unmounted.current) return
       wsRef.current = null
       clearPending(new Error('연결이 끊어졌습니다.'))
+      setIsSpeaking(false)
+      audioChunksRef.current = []
 
       if (reconnectAttempts.current >= WS_RECONNECT_MAX) {
         setStatus('error')
@@ -109,7 +164,7 @@ export function useChatWebSocket() {
       setStatus('error')
       setStatusMessage('연결 오류')
     }
-  }, [clearPending])
+  }, [clearPending, finishAudio])
 
   useEffect(() => {
     unmounted.current = false
@@ -127,7 +182,7 @@ export function useChatWebSocket() {
   }, [connect, clearPending])
 
   const sendMessage = useCallback(
-    (message: string): Promise<string> => {
+    (message: string, options?: SendOptions): Promise<string> => {
       const ws = wsRef.current
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         return Promise.reject(new Error('백엔드에 연결되어 있지 않습니다.'))
@@ -137,14 +192,22 @@ export function useChatWebSocket() {
         return Promise.reject(new Error('이전 메시지 처리 중입니다.'))
       }
 
+      setTtsError(null)
+
       return new Promise((resolve, reject) => {
         pendingResolve.current = resolve
         pendingReject.current = reject
-        ws.send(JSON.stringify({ type: 'chat', message }))
+        ws.send(
+          JSON.stringify({
+            type: 'chat',
+            message,
+            with_tts: options?.withTts ?? false,
+          }),
+        )
       })
     },
     [],
   )
 
-  return { status, statusMessage, sendMessage }
+  return { status, statusMessage, sendMessage, isSpeaking, ttsError }
 }
