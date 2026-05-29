@@ -42,3 +42,10 @@ voice/**/*.opus
 voice/**/*.mp3
 voice/**/*.flac
 voice/**/*.m4a
+
+# AI Datasets
+backend/finetuning/datasets/*.json
+
+# Training outputs & external clones
+backend/outputs/
+llama.cpp/
