@@ -5,9 +5,12 @@ import { VRMLoaderPlugin, VRMExpressionPresetName, VRMHumanBoneName } from '@pix
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
 import type { VRM, VRMPose } from '@pixiv/three-vrm'
 import * as THREE from 'three'
+import { useAvatarStore } from '../stores/avatarStore'
 
 const VRM_PATH = '/models/miku_v1.vrm'
 const VRMA_ENABLED = true // miku_v1.vrm과 VRoid VRMA 호환 이슈
+const TALK_MOTION_MIN = 2
+const TALK_MOTION_MAX = 5
 
 /** T-pose → 자연스러운 A-pose (팔을 양옆으로 자연스럽게 내림) */
 function createNaturalStandPose(): Partial<VRMPose> {
@@ -157,12 +160,32 @@ function useIdleBlink(vrm: VRM | null) {
   })
 }
 
+/** TTS 오디오 기반 립싱크 → VRM 표정 */
+function useApplyLipSync(vrm: VRM | null) {
+  const lipSync = useAvatarStore((s) => s.lipSync)
+  const isSpeaking = useAvatarStore((s) => s.isSpeaking)
+
+  useFrame(() => {
+    if (!vrm?.expressionManager) return
+    const em = vrm.expressionManager
+
+    em.setValue(VRMExpressionPresetName.Aa, isSpeaking ? lipSync.aa : 0)
+    em.setValue(VRMExpressionPresetName.Ih, isSpeaking ? lipSync.ih : 0)
+    em.setValue(VRMExpressionPresetName.Ou, isSpeaking ? lipSync.ou : 0)
+    em.setValue(VRMExpressionPresetName.Ee, isSpeaking ? lipSync.ee : 0)
+    em.setValue(VRMExpressionPresetName.Oh, isSpeaking ? lipSync.oh : 0)
+  })
+}
+
 export function MikuModel({ onMotionSelect }: { onMotionSelect?: (motionName: string) => void }) {
   const vrmRef = useRef<VRM | null>(null)
   const mixerRef = useRef<THREE.AnimationMixer | null>(null)
   const currentActionRef = useRef<THREE.AnimationAction | null>(null)
   const [vrmaActive, setVrmaActive] = useState(false)
-  const [currentMotionIndex, setCurrentMotionIndex] = useState(1) // 상태로 관리해서 모션 끝날 때마다 변경
+  const [currentMotionIndex, setCurrentMotionIndex] = useState(1)
+  const motionBoost = useAvatarStore((s) => s.motionBoost)
+  const isSpeaking = useAvatarStore((s) => s.isSpeaking)
+  const prevMotionBoost = useRef(0)
   const lookAtTarget = useLookAtTarget()
 
   const gltf = useLoader(VRMGLTFLoader, VRM_PATH) as {
@@ -184,6 +207,16 @@ export function MikuModel({ onMotionSelect }: { onMotionSelect?: (motionName: st
   useEffect(() => {
     setCurrentMotionIndex(Math.floor(Math.random() * 7) + 1)
   }, [])
+
+  // TTS 시작 시 말하기용 모션(2~5번) 재생
+  useEffect(() => {
+    if (motionBoost === prevMotionBoost.current) return
+    prevMotionBoost.current = motionBoost
+    const talkIndex =
+      TALK_MOTION_MIN +
+      Math.floor(Math.random() * (TALK_MOTION_MAX - TALK_MOTION_MIN + 1))
+    setCurrentMotionIndex(talkIndex)
+  }, [motionBoost])
 
   useEffect(() => {
     if (!VRMA_ENABLED || !vrm?.humanoid) {
@@ -236,13 +269,16 @@ export function MikuModel({ onMotionSelect }: { onMotionSelect?: (motionName: st
           currentActionRef.current = newAction
 
           // 애니메이션 종료 이벤트 리스너 추가
-          const onFinished = (e: any) => {
+          const onFinished = (e: THREE.Event & { action?: THREE.AnimationAction }) => {
             if (e.action === newAction) {
               console.log('[VRMA] 애니메이션 종료, 다음 모션 로드 대기')
               mixer.removeEventListener('finished', onFinished)
-              
-              // 다음 모션 랜덤하게 선택 (현재 모션과 다르게)
-              setCurrentMotionIndex(prev => {
+
+              if (useAvatarStore.getState().isSpeaking) {
+                return
+              }
+
+              setCurrentMotionIndex((prev) => {
                 let next = Math.floor(Math.random() * 7) + 1
                 while (next === prev) {
                   next = Math.floor(Math.random() * 7) + 1
@@ -291,7 +327,8 @@ export function MikuModel({ onMotionSelect }: { onMotionSelect?: (motionName: st
   }, [vrm, vrmaActive])
 
   useIdleBlink(vrm ?? null)
-  useIdleBreathing(vrm ?? null, !vrmaActive)
+  useIdleBreathing(vrm ?? null, !vrmaActive && !isSpeaking)
+  useApplyLipSync(vrm ?? null)
 
   useFrame((_, delta) => {
     try {
