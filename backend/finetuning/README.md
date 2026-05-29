@@ -18,7 +18,7 @@ python finetuning/create_dataset.py
 # 로컬 모델 사용 (backend/models/Gemma_12B 폴더)
 python finetuning/train_lora.py \
     --model_name models/Gemma_12B \
-    --dataset_path datasets/miku_personality_chat.json \
+    --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
     --use_4bit
@@ -26,7 +26,7 @@ python finetuning/train_lora.py \
 # 또는 HuggingFace 모델 사용
 python finetuning/train_lora.py \
     --model_name google/gemma-3-27b-it \
-    --dataset_path datasets/miku_personality_chat.json \
+    --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
     --use_4bit
@@ -50,21 +50,21 @@ python finetuning/test_model.py \
 
 ## 파일 구조
 
-- `create_dataset.py`: 초기 데이터셋 생성 스크립트
-- `merge_datasets.py`: 커스텀 JSON을 기존 데이터셋에 병합
+- `create_dataset.py`: 성격 매트릭스 시드 → `miku_matrix_seed_chat.json` 덤프
+- `split_miku_dataset.py`: 단일 Chat JSON → `datasets/miku_chat/<상황>/chat.json` 분할·응답 변형
+- `merge_datasets.py`: 커스텀 JSON 병합 (`--into` 로 샤드에 이어 붙이기 또는 `--out` 단일 파일)
 - `train_lora.py`: LoRA 파인튜닝 스크립트
 - `test_model.py`: 파인튜닝된 모델 테스트 스크립트
-- `datasets/`: 데이터셋 저장 디렉토리
-  - `miku_personality_chat.json`: 학습용 Chat 형식 (기본 사용)
-  - `miku_personality_alpaca.json`: Alpaca 형식
-  - `custom_miku_example.json`: 커스텀 데이터 추가 시 참고용 템플릿
+- `datasets/miku_chat/`: 상황·감정별 Chat JSON (기본 학습 경로, 구조는 `docs/ai/miku_chat_dataset.md`)
+- `datasets/custom_miku_example.json`: 커스텀 데이터 템플릿
 - `outputs/`: 학습된 LoRA 어댑터 저장 디렉토리
 
 ### 파인튜닝용 데이터 추가하기
 
-1. **새 대화 추가**: `datasets/custom_miku_example.json` 형식을 참고해 `messages` 배열로 user/assistant 대화를 JSON 파일에 작성합니다.
-2. **병합**: `python finetuning/merge_datasets.py --custom datasets/내대화.json` 으로 기존 데이터셋에 병합합니다.
-3. **학습**: `--dataset_path datasets/miku_personality_chat.json` 으로 파인튜닝을 실행합니다.
+1. **형식**: `datasets/custom_miku_example.json` 처럼 `messages` 배열 (user/assistant).
+2. **병합**: `python finetuning/merge_datasets.py --into datasets/miku_chat/playful_daily/chat.json --custom datasets/내대화.json`  
+   또는 전체를 한 파일로: `--base datasets/miku_chat --custom ... --out datasets/miku_merged_chat.json`
+3. **학습**: 기본은 `--dataset_path datasets/miku_chat` (디렉터리 전체 로드). 단일 파일이면 해당 `.json` 경로 지정.
 
 ## 상세 가이드
 

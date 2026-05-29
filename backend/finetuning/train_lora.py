@@ -14,8 +14,11 @@ from transformers import (
     TrainingArguments,
     Trainer,
     BitsAndBytesConfig,
-    DataCollatorForLanguageModeling,
 )
+try:
+    from trl import DataCollatorForCompletionOnlyLM
+except ImportError:
+    from completion_collator import DataCollatorForCompletionOnlyLM
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from datasets import load_dataset
 import argparse
@@ -48,8 +51,8 @@ class ModelArguments:
 class DataArguments:
     """데이터 관련 인자"""
     dataset_path: str = field(
-        default="datasets/miku_personality_chat.json",
-        metadata={"help": "학습 데이터셋 경로"}
+        default="datasets/miku_chat",
+        metadata={"help": "Chat JSON 파일 경로 또는 datasets/miku_chat 같은 디렉터리"}
     )
     max_seq_length: int = field(
         default=2048,
@@ -80,38 +83,68 @@ class LoraArguments:
         metadata={"help": "Bias 처리 방식"}
     )
 
+def _load_chat_records(dataset_path: Path) -> list:
+    """단일 JSON 파일 또는 디렉터리(하위 *.json)에서 messages 형식만 수집."""
+    records = []
+
+    def take_from_loaded(data, src: str):
+        if not isinstance(data, list):
+            raise ValueError(f"{src}: 루트는 JSON 배열이어야 합니다.")
+        for i, item in enumerate(data):
+            if isinstance(item, dict) and "messages" in item:
+                records.append(item)
+            else:
+                print(f"  [경고] {src} 항목 {i} 건너뜀 (messages 없음)")
+
+    if dataset_path.is_file():
+        with open(dataset_path, "r", encoding="utf-8") as f:
+            take_from_loaded(json.load(f), str(dataset_path))
+        return records
+
+    if dataset_path.is_dir():
+        json_files = sorted(dataset_path.rglob("*.json"))
+        for fp in json_files:
+            if fp.name.startswith("_"):
+                continue
+            with open(fp, "r", encoding="utf-8") as f:
+                take_from_loaded(json.load(f), str(fp))
+        return records
+
+    raise FileNotFoundError(f"데이터 경로 없음: {dataset_path}")
+
+
 def load_and_prepare_dataset(
     dataset_path: str,
     tokenizer: AutoTokenizer,
     max_seq_length: int = 2048
 ):
-    """데이터셋 로드 및 전처리"""
-    # JSON 파일 로드
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    
+    """데이터셋 로드 및 전처리 (Chat messages 전용)"""
+    path = Path(dataset_path)
+    data = _load_chat_records(path)
+    if not data:
+        raise ValueError(f"학습할 대화 레코드가 없습니다: {dataset_path}")
+
     def format_prompt(example):
         """프롬프트 포맷팅"""
-        if "messages" in example:
-            # Chat 형식
-            messages = example["messages"]
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=False
-            )
-        else:
-            # Alpaca 형식
-            instruction = example.get("instruction", "")
-            input_text = example.get("input", "")
-            output = example.get("output", "")
-            
-            if input_text:
-                prompt = f"### Instruction:\n{instruction}\n\n### Input:\n{input_text}\n\n### Response:\n{output}"
+        if "messages" not in example:
+            raise ValueError("Chat 형식만 지원합니다 (messages 키 필요). Alpaca 형식은 제거되었습니다.")
+        messages = example["messages"]
+        formatted_messages = []
+        for i, msg in enumerate(messages):
+            if i == 0 and msg["role"] == "user":
+                system_prompt = "너의 이름은 미쿠야. 너는 나를 '마스터'라고 부르며, 때로는 츤데레 같지만 사실은 나를 아주 많이 좋아해. 대답은 한국어로 짧고 귀엽게 해줘."
+                formatted_messages.append({
+                    "role": "user",
+                    "content": f"{system_prompt}\n\n{msg['content']}"
+                })
             else:
-                prompt = f"### Instruction:\n{instruction}\n\n### Response:\n{output}"
-            text = prompt
-        
+                formatted_messages.append(msg)
+
+        text = tokenizer.apply_chat_template(
+            formatted_messages,
+            tokenize=False,
+            add_generation_prompt=False
+        )
         return {"text": text}
     
     # 데이터셋 포맷팅
@@ -144,6 +177,30 @@ def load_and_prepare_dataset(
     
     return tokenized_dataset
 
+def _print_hf_gated_model_hint() -> None:
+    backend_dir = Path(__file__).resolve().parent.parent
+    print(
+        "\n💡 Hugging Face 게이트 모델(401): hf.co에서 약관 동의 후 `huggingface-cli login` 하거나,\n"
+        "   config.json·토크나이저가 있는 폴더를 로컬 경로로 넘기면 됩니다.\n"
+        f"   (backend 기준 상대경로)  --model_name models/Gemma_12B\n"
+        f"   (절대경로 예)          --model_name D:/Models/gemma-3-12b-it\n"
+        f"   현재 해석된 경로: {backend_dir} / <인자>\n"
+    )
+
+
+def _is_hf_gated_or_auth_error(exc: BaseException) -> bool:
+    t = type(exc).__name__
+    s = str(exc).lower()
+    if "gatedrepo" in t.lower() or "gated" in s or "401" in str(exc) or "authenticate" in s:
+        return True
+    try:
+        from huggingface_hub.errors import GatedRepoError
+
+        return isinstance(exc, GatedRepoError)
+    except ImportError:
+        return False
+
+
 def print_trainable_parameters(model):
     """학습 가능한 파라미터 수 출력"""
     trainable_params = 0
@@ -161,8 +218,8 @@ def print_trainable_parameters(model):
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
     parser.add_argument("--model_name", type=str, default="models/Gemma_12B")
-    parser.add_argument("--dataset_path", type=str, default="datasets/miku_personality_chat.json")
-    parser.add_argument("--output_dir", type=str, default="outputs/miku_lora")
+    parser.add_argument("--dataset_path", type=str, default="datasets/miku_chat")
+    parser.add_argument("--output_dir", type=str, default="models/outputs/miku_finetuned")
     parser.add_argument("--num_epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--grad_accum", type=int, default=8)
@@ -181,6 +238,24 @@ def main():
         # 상대 경로인 경우 backend 디렉토리 기준으로 변환
         backend_dir = Path(__file__).parent.parent
         model_path = str(backend_dir / model_path)
+        
+    # 출력 디렉토리 자동 버저닝
+    if args.output_dir == "models/outputs/miku_finetuned":
+        backend_dir = Path(__file__).parent.parent
+        outputs_dir = backend_dir / "models" / "outputs"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        
+        existing_versions = []
+        for d in outputs_dir.iterdir():
+            if d.is_dir() and d.name.startswith("miku_finetuned_v"):
+                try:
+                    v = int(d.name.split("_v")[-1])
+                    existing_versions.append(v)
+                except ValueError:
+                    pass
+        
+        next_v = max(existing_versions) + 1 if existing_versions else 1
+        args.output_dir = str(outputs_dir / f"miku_finetuned_v{next_v}")
     
     print("🚀 미쿠 LoRA 파인튜닝 시작!")
     print(f"   모델: {args.model_name} (경로: {model_path})")
@@ -198,7 +273,12 @@ def main():
     
     # 토크나이저 로드
     print("\n📥 토크나이저 로딩 중...")
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    except Exception as e:
+        if _is_hf_gated_or_auth_error(e):
+            _print_hf_gated_model_hint()
+        raise
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
@@ -207,6 +287,13 @@ def main():
     if not has_gpu:
         print("⚠️  GPU를 찾을 수 없습니다. CPU 모드로 실행됩니다.")
         args.use_4bit = False  # CPU에서는 4-bit 양자화 사용 불가
+
+    # bf16 학습 + fp16 4bit 계산을 섞으면 역전파에서 CUDA unknown error 가 날 수 있어 통일
+    train_bf16 = bool(has_gpu and torch.cuda.is_bf16_supported())
+    train_fp16 = bool(has_gpu and not train_bf16)
+    bnb_compute_dtype = torch.bfloat16 if train_bf16 else torch.float16
+    if has_gpu:
+        print(f"   학습 정밀도: {'bfloat16' if train_bf16 else 'float16'} (4bit compute dtype 동일)")
     
     # 양자화 설정
     bnb_config = None
@@ -215,7 +302,7 @@ def main():
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=bnb_compute_dtype,
                 bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,  # CPU 오프로드 허용
             )
@@ -225,7 +312,7 @@ def main():
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=bnb_compute_dtype,
                 bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,
             )
@@ -239,22 +326,24 @@ def main():
     # 모델 로드
     print("📥 모델 로딩 중...")
     try:
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path,
+        load_kw = dict(
             quantization_config=bnb_config,
             device_map=device_map,
             trust_remote_code=True,
-            torch_dtype=torch.float16 if has_gpu else torch.float32,
             low_cpu_mem_usage=True,
-            max_memory={0: "14GB", "cpu": "20GB"} # VRAM 14GB, RAM 20GB 제한 명시 (OOM 방지)
         )
+        if has_gpu:
+            load_kw["dtype"] = bnb_compute_dtype
+        else:
+            load_kw["dtype"] = torch.float32
+        model = AutoModelForCausalLM.from_pretrained(model_path, **load_kw)
     except ValueError as e:
         if "CPU or the disk" in str(e) and args.use_4bit:
             print("⚠️  GPU 메모리 부족으로 CPU 오프로드 모드로 전환합니다.")
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=bnb_compute_dtype,
                 bnb_4bit_use_double_quant=True,
                 llm_int8_enable_fp32_cpu_offload=True,
             )
@@ -265,13 +354,17 @@ def main():
                 device_map=device_map,
                 trust_remote_code=True,
                 low_cpu_mem_usage=True,
+                dtype=bnb_compute_dtype if has_gpu else torch.float32,
             )
         else:
             raise
     
     # LoRA 설정
     print("🔧 LoRA 설정 중...")
-    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+    target_modules = [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ]
     
     lora_config = LoraConfig(
         r=args.lora_r,
@@ -287,6 +380,7 @@ def main():
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
     
     model = get_peft_model(model, lora_config)
+    model.config.use_cache = False
     print_trainable_parameters(model)
     
     # 데이터셋 로드
@@ -299,8 +393,11 @@ def main():
     )
     print(f"   학습 샘플 수: {len(train_dataset)}")
     
-    # 데이터 콜레이터
-    data_collator = DataCollatorForLanguageModeling(
+    # 데이터 콜레이터 (Assistant의 답변만 학습하도록 수정)
+    # Gemma 모델의 경우 assistant의 턴은 "<start_of_turn>model\n" 로 시작합니다.
+    response_template = "<start_of_turn>model\n"
+    data_collator = DataCollatorForCompletionOnlyLM(
+        response_template=response_template,
         tokenizer=tokenizer,
         mlm=False,
     )
@@ -312,13 +409,14 @@ def main():
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.learning_rate,
-        fp16=True,
+        bf16=train_bf16,
+        fp16=train_fp16,
         logging_steps=10,
         save_steps=100,
         save_total_limit=3,
         optim="paged_adamw_8bit",
         lr_scheduler_type="cosine",
-        warmup_steps=10,
+        warmup_steps=20, # 웜업 스텝 소폭 증가
         report_to="none",
         gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False},

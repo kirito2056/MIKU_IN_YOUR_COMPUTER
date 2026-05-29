@@ -27,13 +27,11 @@ cd backend
 python finetuning/create_dataset.py
 ```
 
-이 스크립트는 다음 파일들을 생성합니다:
-- `finetuning/datasets/miku_personality_alpaca.json`: Alpaca 형식 데이터셋
-- `finetuning/datasets/miku_personality_chat.json`: Chat 형식 데이터셋 (Gemma 3 Instruct용)
+이 스크립트는 성격 매트릭스 시드만 `finetuning/datasets/miku_matrix_seed_chat.json` 에 Chat 형식으로 덤프합니다.  
+**실제 파인튜닝은** 상황·감정별로 나뉜 `finetuning/datasets/miku_chat/` 아래 JSON을 사용합니다. 폴더 구조·추가 방법은 [miku_chat_dataset.md](./miku_chat_dataset.md)를 참고하세요.
 
-### 데이터셋 형식
+### 데이터셋 형식 (Chat 전용)
 
-#### Chat 형식 (권장)
 ```json
 [
   {
@@ -45,16 +43,7 @@ python finetuning/create_dataset.py
 ]
 ```
 
-#### Alpaca 형식
-```json
-[
-  {
-    "instruction": "너는 누구야?",
-    "input": "",
-    "output": "나는 미쿠야. 오빠가 나를 만들었잖아..."
-  }
-]
-```
+동일한 사용자 발화에 대해 `assistant` 문장만 바꾼 항목을 여러 개 두면, 말투 다양성 학습에 도움이 됩니다.
 
 ## 3. LoRA 파인튜닝 실행
 
@@ -64,7 +53,7 @@ python finetuning/create_dataset.py
 cd backend/finetuning
 python train_lora.py \
     --model_name google/gemma-3-27b-it \
-    --dataset_path datasets/miku_personality_chat.json \
+    --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
     --batch_size 4 \

@@ -11,7 +11,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from services.llm_service import LLMService
 import os
+import sys
 from dotenv import load_dotenv
+
+# Windows에서 이모지 출력을 위한 UTF-8 인코딩 설정
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
 # 환경 변수 로드
 load_dotenv()
@@ -23,9 +31,27 @@ def main():
     print()
     
     # 설정 읽기
-    model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma_12B")
+    model_path = os.getenv("LLM_MODEL_PATH", "models/miku_12B_merged")
     lora_path = os.getenv("LORA_PATH", None)
     use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
+    
+    # LoRA 경로 자동 감지
+    if lora_path is None:
+        backend_dir = Path(__file__).parent
+        outputs_dir = backend_dir / "models" / "outputs"
+        if outputs_dir.exists():
+            existing_versions = []
+            for d in outputs_dir.iterdir():
+                if d.is_dir() and (d.name.startswith("miku_finetuned_v") or d.name.startswith("miku_lora_v")):
+                    try:
+                        v = int(d.name.split("_v")[-1])
+                        existing_versions.append((v, d))
+                    except ValueError:
+                        pass
+            if existing_versions:
+                highest_version_dir = max(existing_versions, key=lambda x: x[0])[1]
+                lora_path = f"models/outputs/{highest_version_dir.name}"
+                print(f"🔄 LORA_PATH 자동 감지됨: {lora_path}")
     
     print(f"📥 모델 로딩 중...")
     print(f"   모델 경로: {model_path}")
@@ -61,8 +87,9 @@ def main():
                     continue
                 
                 print("🤖 미쿠: ", end="", flush=True)
-                response = llm.chat(user_input)
-                print(response)
+                for text_chunk in llm.chat_stream(user_input):
+                    print(text_chunk, end="", flush=True)
+                print()
                 print()
                 
             except KeyboardInterrupt:

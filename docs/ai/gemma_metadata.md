@@ -56,7 +56,7 @@ Gemma(및 Hugging Face 모델)와 관련된 메타데이터는 아래와 같이 
 ```json
 {
   "base_model": "models/Gemma_12B",
-  "dataset_path": "datasets/miku_personality_chat.json",
+  "dataset_path": "datasets/miku_chat",
   "num_epochs": 3,
   "batch_size": 4,
   "learning_rate": 0.0002,

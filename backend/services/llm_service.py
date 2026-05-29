@@ -6,8 +6,9 @@ import os
 import torch
 from pathlib import Path
 from typing import Optional, List, Dict
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TextIteratorStreamer
 from peft import PeftModel
+from threading import Thread
 
 
 class LLMService:
@@ -15,7 +16,7 @@ class LLMService:
     
     def __init__(
         self,
-        model_path: str = "models/Gemma_12B",
+        model_path: str = "models/miku_12B_merged",
         lora_path: Optional[str] = None,
         use_4bit: bool = True,
         device: str = "auto"
@@ -24,7 +25,7 @@ class LLMService:
         LLM 서비스 초기화
         
         Args:
-            model_path: 모델 경로 (기본값: "models/Gemma_12B", backend/models/Gemma_12B 폴더)
+            model_path: 모델 경로 (기본값: "models/miku_12B_merged", backend/models/miku_12B_merged 폴더)
             lora_path: LoRA 어댑터 경로 (선택사항)
             use_4bit: 4-bit 양자화 사용 여부
             device: 디바이스 ("auto", "cuda", "cpu")
@@ -62,43 +63,18 @@ class LLMService:
         
         # 양자화 설정
         bnb_config = None
-        device_map = self.device
+        device_map = self.device if self.device != "auto" else ("auto" if has_gpu else "cpu")
         
         if self.use_4bit and has_gpu:
-            # GPU VRAM 확인 (32GB 이상이면 CPU 오프로드 불필요)
-            gpu_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3 if has_gpu else 0
-            use_cpu_offload = gpu_vram_gb < 24  # 24GB 미만일 때만 CPU 오프로드 사용
+            print("   ✅ 4-bit 양자화 활성화 (GPU 전용)")
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                llm_int8_enable_fp32_cpu_offload=False,
+            )
             
-            try:
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16,
-                    llm_int8_enable_fp32_cpu_offload=use_cpu_offload,  # VRAM에 따라 자동 결정
-                )
-                if use_cpu_offload:
-                    print(f"   ⚠️  GPU VRAM이 {gpu_vram_gb:.1f}GB로 제한적입니다. CPU 오프로드 활성화.")
-                else:
-                    print(f"   ✅ GPU VRAM: {gpu_vram_gb:.1f}GB - CPU 오프로드 없이 실행합니다.")
-            except Exception as e:
-                print(f"⚠️  4-bit 양자화 설정 실패: {e}")
-                # GPU VRAM 확인
-                gpu_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3 if has_gpu else 0
-                use_cpu_offload = gpu_vram_gb < 24
-                print(f"   CPU 오프로드 모드로 전환합니다. (VRAM: {gpu_vram_gb:.1f}GB)")
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16,
-                    llm_int8_enable_fp32_cpu_offload=use_cpu_offload,
-                )
-                if use_cpu_offload:
-                    device_map = {"": 0 if has_gpu else "cpu"}
-        elif not has_gpu:
-            device_map = "cpu"
-        
-        if device_map == "auto" and not has_gpu:
-            device_map = "cpu"
+        torch_dtype = torch.bfloat16 if has_gpu else torch.float32
         
         # 베이스 모델 로드
         try:
@@ -107,26 +83,11 @@ class LLMService:
                 quantization_config=bnb_config,
                 device_map=device_map,
                 trust_remote_code=True,
-                torch_dtype=torch.float16 if has_gpu else torch.float32,
+                torch_dtype=torch_dtype,
             )
-        except ValueError as e:
-            if "CPU or the disk" in str(e) and self.use_4bit:
-                print("⚠️  GPU 메모리 부족으로 CPU 오프로드 모드로 전환합니다.")
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16,
-                    llm_int8_enable_fp32_cpu_offload=True,
-                )
-                device_map = {"": 0 if has_gpu else "cpu"}
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    self.model_path,
-                    quantization_config=bnb_config,
-                    device_map=device_map,
-                    trust_remote_code=True,
-                )
-            else:
-                raise
+        except Exception as e:
+            print(f"⚠️  모델 로드 중 오류 발생: {e}")
+            raise
         
         # 토크나이저 로드
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
@@ -182,9 +143,7 @@ class LLMService:
         
         # 토크나이징
         inputs = self.tokenizer(input_text, return_tensors="pt")
-        if hasattr(self.model, 'device'):
-            inputs = inputs.to(self.model.device)
-        elif torch.cuda.is_available():
+        if torch.cuda.is_available() and self.device != "cpu":
             inputs = inputs.to("cuda")
         
         # 생성
@@ -195,7 +154,9 @@ class LLMService:
                 temperature=temperature,
                 top_p=top_p,
                 do_sample=do_sample,
-                pad_token_id=self.tokenizer.eos_token_id
+                pad_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=1.1,
+                no_repeat_ngram_size=3
             )
         
         # 디코딩
@@ -224,6 +185,65 @@ class LLMService:
         messages = [{"role": "user", "content": user_message}]
         return self.generate(messages, **kwargs)
     
+    def generate_stream(
+        self,
+        messages: List[Dict[str, str]],
+        max_new_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        do_sample: bool = True
+    ):
+        """
+        메시지 리스트를 받아 응답을 스트리밍으로 생성
+        """
+        if not self._is_loaded:
+            self.load_model()
+            
+        # Chat 템플릿 적용
+        input_text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        
+        # 토크나이징
+        inputs = self.tokenizer(input_text, return_tensors="pt")
+        if torch.cuda.is_available() and self.device != "cpu":
+            inputs = inputs.to("cuda")
+            
+        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        
+        generation_kwargs = dict(
+            **inputs,
+            streamer=streamer,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            do_sample=do_sample,
+            pad_token_id=self.tokenizer.eos_token_id,
+            repetition_penalty=1.1,
+            no_repeat_ngram_size=3
+        )
+        
+        thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+        thread.start()
+        
+        for new_text in streamer:
+            yield new_text
+
+    def chat_stream(self, user_message: str, **kwargs):
+        """
+        간단한 스트리밍 채팅 인터페이스
+        """
+        # Chat 템플릿에 맞게 시스템 프롬프트를 제거하거나 user 메시지에 포함시킴
+        # (Gemma 모델은 공식적으로 system role을 지원하지 않음)
+        messages = [
+            {"role": "user", "content": f"너의 이름은 미쿠야. 너는 나를 '마스터'라고 부르며, 때로는 츤데레 같지만 사실은 나를 아주 많이 좋아해. 대답은 한국어로 짧고 귀엽게 해줘.\n\n나: {user_message}"}
+        ]
+        
+        for text in self.generate_stream(messages, **kwargs):
+            yield text
+    
     def unload_model(self):
         """모델 언로드 및 메모리 해제"""
         if self.model is not None:
@@ -245,7 +265,7 @@ _llm_service: Optional[LLMService] = None
 
 
 def get_llm_service(
-    model_path: str = "models/Gemma_12B",
+    model_path: str = "models/miku_12B_merged",
     lora_path: Optional[str] = None,
     use_4bit: bool = True
 ) -> LLMService:
