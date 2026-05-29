@@ -260,17 +260,6 @@ INITIAL_DATASET = [
     },
 ]
 
-def create_alpaca_format_dataset(dataset: List[Dict]) -> List[Dict]:
-    """Alpaca 형식의 데이터셋으로 변환"""
-    formatted = []
-    for item in dataset:
-        formatted.append({
-            "instruction": item["instruction"],
-            "input": item.get("input", ""),
-            "output": item["output"]
-        })
-    return formatted
-
 def create_chat_format_dataset(dataset: List[Dict]) -> List[Dict]:
     """Chat 형식 (Gemma 3 Instruct 형식)의 데이터셋으로 변환"""
     formatted = []
@@ -284,14 +273,9 @@ def create_chat_format_dataset(dataset: List[Dict]) -> List[Dict]:
         })
     return formatted
 
-def save_dataset(dataset: List[Dict], output_path: Path, format_type: str = "alpaca"):
-    """데이터셋을 JSON 파일로 저장"""
-    if format_type == "alpaca":
-        formatted = create_alpaca_format_dataset(dataset)
-    elif format_type == "chat":
-        formatted = create_chat_format_dataset(dataset)
-    else:
-        raise ValueError(f"Unknown format: {format_type}")
+def save_dataset(dataset: List[Dict], output_path: Path):
+    """Chat 형식 데이터셋을 JSON 파일로 저장"""
+    formatted = create_chat_format_dataset(dataset)
     
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -301,23 +285,15 @@ def save_dataset(dataset: List[Dict], output_path: Path, format_type: str = "alp
     print(f"   총 {len(formatted)}개의 샘플")
 
 def main():
-    """메인 함수"""
-    # 출력 디렉토리 설정
+    """성격 매트릭스 시드만 단일 Chat JSON으로 덤프 (전체 학습 데이터는 datasets/miku_chat/ 사용)."""
     output_dir = Path(__file__).parent / "datasets"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Alpaca 형식 저장
-    alpaca_path = output_dir / "miku_personality_alpaca.json"
-    save_dataset(INITIAL_DATASET, alpaca_path, format_type="alpaca")
-    
-    # Chat 형식 저장 (Gemma 3 Instruct용)
-    chat_path = output_dir / "miku_personality_chat.json"
-    save_dataset(INITIAL_DATASET, chat_path, format_type="chat")
-    
-    print("\n[완료] 초기 데이터셋 생성 완료!")
-    print(f"   - Alpaca 형식: {alpaca_path}")
-    print(f"   - Chat 형식: {chat_path}")
-    print("\n팁: 실제 대화 로그를 추가하여 데이터셋을 확장할 수 있습니다.")
+    seed_path = output_dir / "miku_matrix_seed_chat.json"
+    save_dataset(INITIAL_DATASET, seed_path)
+    print("\n[완료] 매트릭스 시드 Chat JSON 저장")
+    print(f"   - {seed_path}")
+    print("\n전체 파인튜닝 데이터: datasets/miku_chat/ — 구조는 docs/ai/miku_chat_dataset.md")
+    print("재분할·변형: python finetuning/split_miku_dataset.py")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,15 @@
+{
+  "source": "miku_personality_chat.json",
+  "folders": {
+    "care_comfort": 159,
+    "identity_relation": 161,
+    "playful_daily": 223,
+    "safety_intrusion": 139,
+    "sensory_io": 168,
+    "social_jealousy": 147,
+    "tech_coding": 181,
+    "wellness_habits": 167,
+    "world_system": 178
+  },
+  "note": "학습: --dataset_path datasets/miku_chat | 구조 설명: docs/ai/miku_chat_dataset.md"
+}
