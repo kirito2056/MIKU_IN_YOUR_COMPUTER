@@ -50,3 +50,23 @@
 -   **백업 트리거**: AI 버전 업그레이드 또는 모델 변경 시 Google Drive에 자동 백업.
 -   **데이터 정리**: 데이터 삭제 없음. HDD 용량 부족 시 용량 업그레이드 권장.
 -   **스키마 변경**: 버전 업그레이드 시 DB 스키마 변경을 최소화하여 호환성 유지.
+
+---
+
+## 4. 구현 스키마 (Phase 2)
+
+SQL 마이그레이션: `backend/db/schema/` (적용: `python backend/db/apply_schema.py`)
+
+| db.md 개념 | 테이블 |
+|------------|--------|
+| Users | `users` |
+| GrowthStats | `growth_stats` |
+| ShortTermMemory (L1 spill) | `short_term_turns` |
+| Conversations + embedding | `conversation_turns`, `conversation_summaries` |
+| Knowledge Graph | `knowledge_facts` |
+| System Logs | `system_logs` |
+| Usage Patterns | `usage_patterns` |
+| Wallet/Inventory | `wallet_items` |
+| Diary / Media (Vault 메타) | `diary_entries`, `media_assets` |
+
+상세: [backend/db/README.md](../../backend/db/README.md)

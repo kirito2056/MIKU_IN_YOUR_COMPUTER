@@ -17,3 +17,4 @@ trl>=0.7.0
 tqdm
 pydantic
 python-dotenv
+psycopg2-binary>=2.9.9

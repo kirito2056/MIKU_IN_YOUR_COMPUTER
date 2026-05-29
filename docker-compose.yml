@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: miku-postgres
+    environment:
+      POSTGRES_USER: miku
+      POSTGRES_PASSWORD: miku
+      POSTGRES_DB: miku
+    ports:
+      - "5432:5432"
+    volumes:
+      - miku_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miku -d miku"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   miku-backend:
     build: ./backend
     container_name: miku-backend
@@ -22,3 +40,9 @@ services:
     #           capabilities: [gpu]
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  miku_pgdata:
