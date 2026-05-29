@@ -14,6 +14,9 @@ export type ConnectionStatus =
 
 type ServerMessage =
   | { type: 'response'; message: string }
+  | { type: 'stream_start' }
+  | { type: 'stream_chunk'; text: string }
+  | { type: 'stream_end'; message: string }
   | { type: 'error'; message: string }
   | { type: 'pong' }
   | { type: 'audio_start'; format: string }
@@ -21,8 +24,16 @@ type ServerMessage =
   | { type: 'audio_end' }
   | { type: 'tts_error'; message: string }
 
+export type StreamCallbacks = {
+  onStart?: () => void
+  onChunk?: (text: string) => void
+  onEnd?: (message: string) => void
+}
+
 type SendOptions = {
   withTts?: boolean
+  stream?: boolean
+  streamCallbacks?: StreamCallbacks
 }
 
 export function useChatWebSocket() {
@@ -31,6 +42,7 @@ export function useChatWebSocket() {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingResolve = useRef<((text: string) => void) | null>(null)
   const pendingReject = useRef<((err: Error) => void) | null>(null)
+  const streamCallbacksRef = useRef<StreamCallbacks | undefined>(undefined)
   const audioChunksRef = useRef<string[]>([])
   const unmounted = useRef(false)
 
@@ -45,6 +57,17 @@ export function useChatWebSocket() {
     }
     pendingResolve.current = null
     pendingReject.current = null
+    streamCallbacksRef.current = undefined
+  }, [])
+
+  const finishPending = useCallback((message: string) => {
+    streamCallbacksRef.current?.onEnd?.(message)
+    if (pendingResolve.current) {
+      pendingResolve.current(message)
+    }
+    pendingResolve.current = null
+    pendingReject.current = null
+    streamCallbacksRef.current = undefined
   }, [])
 
   const finishAudio = useCallback(async () => {
@@ -94,10 +117,23 @@ export function useChatWebSocket() {
 
       if (data.type === 'pong') return
 
+      if (data.type === 'stream_start') {
+        streamCallbacksRef.current?.onStart?.()
+        return
+      }
+
+      if (data.type === 'stream_chunk') {
+        streamCallbacksRef.current?.onChunk?.(data.text)
+        return
+      }
+
+      if (data.type === 'stream_end') {
+        finishPending(data.message)
+        return
+      }
+
       if (data.type === 'response' && pendingResolve.current) {
-        pendingResolve.current(data.message)
-        pendingResolve.current = null
-        pendingReject.current = null
+        finishPending(data.message)
         return
       }
 
@@ -131,6 +167,7 @@ export function useChatWebSocket() {
           pendingReject.current(new Error(data.message))
           pendingResolve.current = null
           pendingReject.current = null
+          streamCallbacksRef.current = undefined
         }
       }
     }
@@ -164,7 +201,7 @@ export function useChatWebSocket() {
       setStatus('error')
       setStatusMessage('연결 오류')
     }
-  }, [clearPending, finishAudio])
+  }, [clearPending, finishAudio, finishPending])
 
   useEffect(() => {
     unmounted.current = false
@@ -193,6 +230,7 @@ export function useChatWebSocket() {
       }
 
       setTtsError(null)
+      streamCallbacksRef.current = options?.streamCallbacks
 
       return new Promise((resolve, reject) => {
         pendingResolve.current = resolve
@@ -201,6 +239,7 @@ export function useChatWebSocket() {
           JSON.stringify({
             type: 'chat',
             message,
+            stream: options?.stream ?? true,
             with_tts: options?.withTts ?? false,
           }),
         )

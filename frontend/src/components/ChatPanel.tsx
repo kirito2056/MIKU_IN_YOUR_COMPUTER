@@ -69,12 +69,43 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
       { id: nextId(), role: 'user', content: text },
     ])
 
+    const assistantId = nextId()
+
     try {
-      const reply = await sendMessage(text, { withTts })
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: 'assistant', content: reply },
-      ])
+      const reply = await sendMessage(text, {
+        withTts,
+        streamCallbacks: {
+          onStart: () => {
+            setMessages((prev) => [
+              ...prev,
+              { id: assistantId, role: 'assistant', content: '' },
+            ])
+          },
+          onChunk: (chunk) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, content: msg.content + chunk }
+                  : msg,
+              ),
+            )
+          },
+          onEnd: (message) => {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantId ? { ...msg, content: message } : msg,
+              ),
+            )
+          },
+        },
+      })
+
+      // 스트리밍 콜백이 누락된 경우 대비
+      setMessages((prev) => {
+        const exists = prev.some((msg) => msg.id === assistantId)
+        if (exists) return prev
+        return [...prev, { id: assistantId, role: 'assistant', content: reply }]
+      })
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : '응답을 받지 못했습니다.'
@@ -231,7 +262,10 @@ export function ChatPanel({ currentMotion }: ChatPanelProps) {
             </span>
           </div>
         ))}
-        {isSending && (
+        {isSending &&
+          !messages.some(
+            (msg) => msg.role === 'assistant' && msg.content === '',
+          ) && (
           <p style={{ margin: 0, fontSize: '16px', color: '#888' }}>
             미쿠가 생각 중…
           </p>

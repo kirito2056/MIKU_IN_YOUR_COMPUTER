@@ -7,6 +7,7 @@ import asyncio
 import base64
 import sys
 import os
+from threading import Thread
 from dotenv import load_dotenv
 
 # 환경 변수 로드
@@ -107,6 +108,51 @@ async def _stream_tts_over_ws(websocket: WebSocket, text: str) -> None:
             "data": base64.b64encode(chunk).decode("ascii"),
         })
     await websocket.send_json({"type": "audio_end"})
+
+
+async def _stream_llm_over_ws(
+    websocket: WebSocket,
+    user_message: str,
+    *,
+    max_new_tokens: int = 200,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+) -> str:
+    """LLM 토큰 스트리밍 후 전체 텍스트 반환."""
+    await websocket.send_json({"type": "stream_start"})
+
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue = asyncio.Queue()
+
+    def producer() -> None:
+        try:
+            for chunk in llm_service.chat_stream(
+                user_message,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            ):
+                loop.call_soon_threadsafe(queue.put_nowait, ("chunk", chunk))
+            loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+        except Exception as exc:
+            loop.call_soon_threadsafe(queue.put_nowait, ("error", exc))
+
+    Thread(target=producer, daemon=True).start()
+
+    parts: list[str] = []
+    while True:
+        kind, payload = await queue.get()
+        if kind == "chunk":
+            parts.append(payload)
+            await websocket.send_json({"type": "stream_chunk", "text": payload})
+        elif kind == "done":
+            break
+        elif kind == "error":
+            raise payload
+
+    full_text = "".join(parts)
+    await websocket.send_json({"type": "stream_end", "message": full_text})
+    return full_text
 
 
 @app.get("/")
@@ -228,17 +274,25 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
 
                 try:
-                    response = llm_service.chat(
-                        user_message,
-                        max_new_tokens=data.get("max_new_tokens", 200),
-                        temperature=data.get("temperature", 0.7),
-                        top_p=data.get("top_p", 0.9)
-                    )
+                    gen_kwargs = {
+                        "max_new_tokens": data.get("max_new_tokens", 200),
+                        "temperature": data.get("temperature", 0.7),
+                        "top_p": data.get("top_p", 0.9),
+                    }
+                    use_stream = data.get("stream", True)
 
-                    await websocket.send_json({
-                        "type": "response",
-                        "message": response
-                    })
+                    if use_stream:
+                        response = await _stream_llm_over_ws(
+                            websocket,
+                            user_message,
+                            **gen_kwargs,
+                        )
+                    else:
+                        response = llm_service.chat(user_message, **gen_kwargs)
+                        await websocket.send_json({
+                            "type": "response",
+                            "message": response,
+                        })
 
                     if data.get("with_tts"):
                         await _stream_tts_over_ws(websocket, response)
