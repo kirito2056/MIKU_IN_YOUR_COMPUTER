@@ -607,7 +607,7 @@
       },
       {
         "role": "assistant",
-        "content": "플랜은 Gemma 3 계열이야. 용량 맞춰 12B나 9B 고르고."
+        "content": "플랜은 Gemma 4 12B야. RTX 5080 16GB에 4bit로 딱 맞아."
       }
     ]
   },

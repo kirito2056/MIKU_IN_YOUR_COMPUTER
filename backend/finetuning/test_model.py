@@ -67,7 +67,7 @@ def load_model_and_tokenizer(
         if has_gpu:
             load_kwargs["torch_dtype"] = torch.float16
             load_kwargs["device_map"] = device_map
-            # CUDA 커널 충돌 방지를 위해 SDPA 강제 활성화 (Gemma 3 이슈 우회)
+            # CUDA 커널 충돌 방지를 위해 SDPA 강제 활성화 (Gemma 4 이슈 우회)
             load_kwargs["attn_implementation"] = "sdpa"
             
             if bnb_config:
@@ -108,7 +108,7 @@ def load_model_and_tokenizer(
         elif "out of memory" in error_msg.lower() or "killed" in error_msg.lower() or isinstance(e, MemoryError):
             print("\n❌ 메모리 부족 오류 발생!")
             print("\n💡 해결 방법:")
-            print("   1. 더 작은 모델 사용 (예: google/gemma-2-2b-it)")
+            print("   1. 더 작은 모델 사용 (예: google/gemma-4-E2B-it)")
             print("   2. GPU가 있는 환경에서 실행")
             print("   3. 모델을 양자화하여 사용")
             print("   4. 시스템 RAM을 늘리거나 스왑 공간 확보")
@@ -163,7 +163,7 @@ def generate_response(
     # 토크나이징
     inputs = tokenizer(input_text, return_tensors="pt")
     
-    # Gemma 3 오류 방지를 위한 token_type_ids 추가
+    # Gemma 4 오류 방지를 위한 token_type_ids 추가
     if "token_type_ids" not in inputs:
         inputs["token_type_ids"] = torch.zeros_like(inputs["input_ids"])
     # 모델의 디바이스로 이동
@@ -191,7 +191,7 @@ def generate_response(
             )
         except RuntimeError as e:
                 if "TensorCompare.cu" in str(e):
-                    print("\n[내부 경고] Gemma 3 커널 충돌 감지됨. 안전 모드로 재시도합니다...")
+                    print("\n[내부 경고] Gemma 4 커널 충돌 감지됨. 안전 모드로 재시도합니다...")
                     # 안전 모드: token_type_ids 제거 후 재시도
                     if "token_type_ids" in inputs:
                         del inputs["token_type_ids"]
@@ -274,8 +274,8 @@ def main():
     parser.add_argument(
         "--base_model", 
         type=str, 
-        default="models/Gemma_12B",
-        help="베이스 모델 경로 (기본값: models/Gemma_12B, backend/models/Gemma_12B 폴더 사용)"
+        default="models/Gemma4_12B",
+        help="베이스 모델 경로 (기본값: models/Gemma4_12B, backend/models/Gemma4_12B 폴더 사용)"
     )
     parser.add_argument(
         "--lora_path",

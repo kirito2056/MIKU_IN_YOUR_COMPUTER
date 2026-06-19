@@ -26,7 +26,7 @@ from typing import Dict, Optional
 def generate_cache_key(
     user_input: str,
     context: Dict,
-    model_name: str = "gemma-3-27b-4bit"
+    model_name: str = "gemma-4-12b-4bit"
 ) -> str:
     """LLM 응답 캐시 키 생성"""
     # 사용자 입력 + 컨텍스트 해시
@@ -431,7 +431,7 @@ class ModelManager:
     def __init__(self):
         self.loaded_models = {}
         self.model_paths = {
-            'llm': 'D:/MIKU_DATA/models/gemma-3-27b-4bit.gguf',  # GPU 0 (RTX 5080)
+            'llm': 'D:/MIKU_DATA/models/gemma-4-12b-4bit.gguf',  # GPU 0 (RTX 5080)
             'tts': 'D:/MIKU_DATA/models/gpt-sovits-miku.pt',  # GPU 1 (RTX 3090)
             'vision': 'D:/MIKU_DATA/models/yolo-v8.pt'  # GPU 1 (RTX 3090)
         }

@@ -49,7 +49,7 @@
 
 ### 7. Vision / Hardware (The Eyes)
 - [ ] **카메라 연동**: OpenCV 기반 사용자 얼굴/모션 트래킹 미구현
-- [ ] **멀티모달 이해**: Gemma Vision 기반 화면 및 현실 상황 인지 미구현
+- [ ] **멀티모달 이해**: Gemma 4 Vision + Eye1/Eye2 정량화 연동 미구현
 
 ---
 

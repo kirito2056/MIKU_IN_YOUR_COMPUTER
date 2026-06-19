@@ -146,7 +146,7 @@
 
 ### 5.7. VRAM 관리 전략
 -   **기본 할당**:
-    -   **RTX 5080 (16GB)**: 언어 모델 (Gemma 3 12B 4-bit) 전용
+    -   **RTX 5080 (16GB)**: 언어 모델 (Gemma 4 12B 4-bit) 전용
     -   **RTX 3090 (24GB)**: Vision AI, 렌더링, TTS, STT 등 모든 서브 작업
 -   **상태**: 구현하면서 동적 할당 로직 최적화
 -   **변경사항**: Vision AI를 RTX 3090으로 이동하여 RTX 5080의 VRAM 부담 완화
@@ -170,7 +170,7 @@
 
 ### Phase 1: Core (v0.1)
 1.  기본 아키텍처 구축 (Frontend + Backend 연결)
-2.  LLM 서빙 (ExLlamaV2 + Gemma 3)
+2.  LLM 서빙 (ExLlamaV2 + Gemma 4 12B)
 3.  TTS/STT 파이프라인
 4.  3D 모델 렌더링 (기본)
 5.  하드웨어 모니터링 (Core Feature)

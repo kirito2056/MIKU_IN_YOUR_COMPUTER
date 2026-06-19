@@ -403,7 +403,7 @@
       },
       {
         "role": "assistant",
-        "content": "vision_schema.md가 정량화 JSON 쪽이야. 픽셀 말고 구조화된 텍스트로 12B에 넣는 그림."
+        "content": "vision_schema.md가 정량화 JSON 쪽이야. 픽셀 말고 구조화된 텍스트로 Gemma 4 12B에 넣는 그림."
       }
     ]
   },

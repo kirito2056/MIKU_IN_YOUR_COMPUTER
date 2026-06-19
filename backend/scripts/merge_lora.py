@@ -25,7 +25,7 @@ def merge_lora(base_model_path: str, lora_path: str, output_path: str):
         torch_dtype=torch.float16,  # 16비트 실수로 로드 (병합을 위해 필요)
         device_map="cpu",           # GPU를 쓰지 않고 RAM만 사용
         low_cpu_mem_usage=True,
-        trust_remote_code=True      # Gemma 3 아키텍처 로드를 위해 필수
+        trust_remote_code=True      # Gemma 4 아키텍처 로드를 위해 필수
     )
     
     print("2. Loading tokenizer...")
@@ -56,9 +56,9 @@ def merge_lora(base_model_path: str, lora_path: str, output_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base_model", default="models/Gemma_12B", help="베이스 모델 경로")
+    parser.add_argument("--base_model", default="models/Gemma4_12B", help="베이스 모델 경로")
     parser.add_argument("--lora", default="outputs/miku_lora", help="학습된 LoRA 경로")
-    parser.add_argument("--output", default="models/miku_12B_merged", help="병합된 모델을 저장할 경로")
+    parser.add_argument("--output", default="models/miku_Gemma4_12B_merged", help="병합된 모델을 저장할 경로")
     
     args = parser.parse_args()
     merge_lora(args.base_model, args.lora, args.output)

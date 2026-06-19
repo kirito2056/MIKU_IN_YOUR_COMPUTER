@@ -387,7 +387,7 @@
     "messages": [
       {
         "role": "user",
-        "content": "Gemma 메타데이터 뭐가 중요해?"
+        "content": "Gemma 4 메타데이터 뭐가 중요해?"
       },
       {
         "role": "assistant",

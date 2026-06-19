@@ -104,7 +104,7 @@ pgvector는 두 가지 거리 함수를 제공합니다:
 | **Cosine Similarity** | `1 - (A·B) / (||A|| × ||B||)` | 벡터 크기 무시, 방향만 고려 | **텍스트 임베딩 (권장)** |
 | **L2 Distance** | `||A - B||²` | 절대 거리 측정 | 이미지 임베딩 |
 
-**MIKU 프로젝트**: Gemma 3 텍스트 임베딩 사용 → **Cosine Similarity 권장**
+**MIKU 프로젝트**: Gemma 4 텍스트 임베딩 사용 → **Cosine Similarity 권장**
 
 ### 3.2. 검색 임계값 설정
 
@@ -236,7 +236,7 @@ class VectorSearchCache:
 @lru_cache(maxsize=1000)
 def get_embedding(text: str) -> np.ndarray:
     """텍스트를 임베딩으로 변환 (캐싱 적용)"""
-    # Gemma 3 임베딩 모델 호출
+    # Gemma 4 임베딩 모델 호출
     ...
 ```
 

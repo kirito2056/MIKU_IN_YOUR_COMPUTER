@@ -24,7 +24,7 @@
 -   `timestamp`: DateTime
 -   `speaker`: 'User' | 'Miku'
 -   `content`: Text
--   `embedding`: `vector(768)` (Gemma embedding)
+-   `embedding`: `vector(768)` (Gemma 4 embedding)
 -   `emotion`: JSON (당시 감정 상태)
 
 ### B. Knowledge Graph (Facts)

@@ -1,6 +1,6 @@
 """
 LoRA 파인튜닝 스크립트
-Gemma 3 모델을 미쿠의 성격에 맞게 파인튜닝합니다.
+Gemma 4 12B 모델을 미쿠의 성격에 맞게 파인튜닝합니다.
 """
 import os
 import json
@@ -27,7 +27,7 @@ import argparse
 class ModelArguments:
     """모델 관련 인자"""
     model_name_or_path: str = field(
-        default="models/Gemma_12B",  # 로컬 모델 경로 (backend/models/Gemma_12B)
+        default="models/Gemma4_12B",  # 로컬 모델 경로 (backend/models/Gemma4_12B)
         metadata={"help": "파인튜닝할 모델 경로 또는 HuggingFace 모델명"}
     )
     use_4bit: bool = field(
@@ -156,11 +156,11 @@ def load_and_prepare_dataset(
             examples["text"],
             truncation=True,
             max_length=max_seq_length,
-            padding="max_length", # 패딩 추가 (Gemma 3 요구사항)
+            padding="max_length", # 패딩 추가 (Gemma 4 요구사항)
             return_tensors=None
         )
         
-        # Gemma 3는 학습 시 token_type_ids를 필수로 요구함
+        # Gemma 4는 학습 시 token_type_ids를 필수로 요구할 수 있음
         if "token_type_ids" not in tokenized:
             tokenized["token_type_ids"] = [[0] * len(seq) for seq in tokenized["input_ids"]]
             
@@ -182,8 +182,8 @@ def _print_hf_gated_model_hint() -> None:
     print(
         "\n💡 Hugging Face 게이트 모델(401): hf.co에서 약관 동의 후 `huggingface-cli login` 하거나,\n"
         "   config.json·토크나이저가 있는 폴더를 로컬 경로로 넘기면 됩니다.\n"
-        f"   (backend 기준 상대경로)  --model_name models/Gemma_12B\n"
-        f"   (절대경로 예)          --model_name D:/Models/gemma-3-12b-it\n"
+        f"   (backend 기준 상대경로)  --model_name models/Gemma4_12B\n"
+        f"   (절대경로 예)          --model_name D:/Models/gemma-4-12B-it\n"
         f"   현재 해석된 경로: {backend_dir} / <인자>\n"
     )
 
@@ -217,7 +217,7 @@ def print_trainable_parameters(model):
 
 def main():
     parser = argparse.ArgumentParser(description="LoRA 파인튜닝 스크립트")
-    parser.add_argument("--model_name", type=str, default="models/Gemma_12B")
+    parser.add_argument("--model_name", type=str, default="models/Gemma4_12B")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_chat")
     parser.add_argument("--output_dir", type=str, default="models/outputs/miku_finetuned")
     parser.add_argument("--num_epochs", type=int, default=3)

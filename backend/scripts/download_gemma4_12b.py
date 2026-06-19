@@ -2,8 +2,8 @@ import os
 from huggingface_hub import snapshot_download
 
 def download_model():
-    model_id = "google/gemma-3-12b-it"
-    local_dir = "models/Gemma_12B"
+    model_id = "google/gemma-4-12B-it"
+    local_dir = "models/Gemma4_12B"
     
     print(f"Downloading {model_id} to {local_dir}...")
     
@@ -21,10 +21,9 @@ def download_model():
         print("\nDownload completed successfully!")
     except Exception as e:
         print(f"\nError downloading model: {e}")
-        print("\nNote: Gemma 3 requires accepting the license agreement on HuggingFace.")
-        print("1. Go to https://huggingface.co/google/gemma-3-12b-it")
-        print("2. Accept the terms")
-        print("3. Run 'huggingface-cli login' in terminal to authenticate")
+        print("\nNote: Gemma 4 is Apache 2.0 licensed. If download fails, check network or HuggingFace access.")
+        print("1. Go to https://huggingface.co/google/gemma-4-12B-it")
+        print("2. Run 'huggingface-cli login' in terminal if authentication is required")
 
 if __name__ == "__main__":
     download_model()

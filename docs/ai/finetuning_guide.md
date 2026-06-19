@@ -2,7 +2,7 @@
 
 ## 개요
 
-MIKU IN YOUR COMPUTER 프로젝트에서 Gemma 3 모델을 미쿠의 성격에 맞게 파인튜닝하는 방법을 안내합니다.
+MIKU IN YOUR COMPUTER 프로젝트에서 Gemma 4 12B 모델을 미쿠의 성격에 맞게 파인튜닝하는 방법을 안내합니다.
 
 ## 1. 준비 사항
 
@@ -52,7 +52,7 @@ python finetuning/create_dataset.py
 ```bash
 cd backend/finetuning
 python train_lora.py \
-    --model_name google/gemma-3-27b-it \
+    --model_name google/gemma-4-12B-it \
     --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
@@ -62,17 +62,17 @@ python train_lora.py \
 ```
 
 **기본 설정:**
-- 모델: `google/gemma-3-27b-it` (27B 파라미터)
-- 양자화: 4-bit (VRAM 약 16-17GB 사용, RTX 5080 16GB 권장)
+- 모델: `google/gemma-4-12B-it` (12B 파라미터, Gemma 4 Unified)
+- 양자화: 4-bit (VRAM 약 7~8GB 사용, RTX 5080 16GB 권장)
 
-**사용 가능한 Gemma 3 모델:**
-- `google/gemma-3-1b-it`: 1B 파라미터 (테스트용, VRAM 4GB+)
-- `google/gemma-3-4b-it`: 4B 파라미터 (VRAM 8GB+)
-- `google/gemma-3-12b-it`: 12B 파라미터 (기본, VRAM 16GB 4-bit)
+**사용 가능한 Gemma 4 모델:**
+- `google/gemma-4-E2B-it`: E2B (엣지/테스트용, VRAM 5GB+)
+- `google/gemma-4-E4B-it`: E4B (VRAM 8GB+)
+- `google/gemma-4-12B-it`: 12B (기본, VRAM 16GB 4-bit)
 
 ### 3.2. 주요 파라미터 설명
 
-- `--model_name`: 파인튜닝할 모델 (Gemma 3 모델명)
+- `--model_name`: 파인튜닝할 모델 (Gemma 4 모델명)
 - `--dataset_path`: 학습 데이터셋 경로
 - `--output_dir`: LoRA 어댑터 저장 경로
 - `--num_epochs`: 학습 에포크 수 (3-5 권장)
@@ -178,11 +178,11 @@ bnb_config = BitsAndBytesConfig(
 )
 
 base_model = AutoModelForCausalLM.from_pretrained(
-    "google/gemma-3-27b-it",
+    "google/gemma-4-12B-it",
     quantization_config=bnb_config,
     device_map="auto"
 )
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-3-27b-it")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-4-12B-it")
 
 # LoRA 어댑터 로드
 model = PeftModel.from_pretrained(base_model, "outputs/miku_lora")

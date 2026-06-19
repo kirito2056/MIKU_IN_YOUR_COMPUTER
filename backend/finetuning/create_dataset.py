@@ -261,7 +261,7 @@ INITIAL_DATASET = [
 ]
 
 def create_chat_format_dataset(dataset: List[Dict]) -> List[Dict]:
-    """Chat 형식 (Gemma 3 Instruct 형식)의 데이터셋으로 변환"""
+    """Chat 형식 (Gemma 4 Instruct 형식)의 데이터셋으로 변환"""
     formatted = []
     for item in dataset:
         messages = [

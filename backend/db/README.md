@@ -136,5 +136,5 @@ LIMIT 5;
 ## 다음 단계 (미구현)
 
 - [ ] `services/memory_service.py` — L1 RAM + DB 연동
-- [ ] 임베딩 파이프라인 (Gemma embedding)
+- [ ] 임베딩 파이프라인 (Gemma 4 embedding)
 - [ ] L1→L2 Context Sliding / 수면 모드 L2→L3 이관

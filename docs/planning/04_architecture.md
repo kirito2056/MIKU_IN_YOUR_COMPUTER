@@ -12,7 +12,7 @@ graph TD
         
         VisionService -->|Event| Server
         
-        Server -->|Prompt| LLM[Gemma 3 Server (ExLlamaV2)]
+        Server -->|Prompt| LLM[Gemma 4 12B Server (ExLlamaV2)]
         Server -->|Text| TTS[GPT-SoVITS Engine]
         Server -->|Image Request| SD[Stable Diffusion]
         
@@ -49,7 +49,7 @@ graph TD
 
 ### AI Services (The Cortex)
 -   **LLM Serving**: **ExLlamaV2** (Optimized for RTX 50-series).
--   **Vision**: `OpenCV` (Motion Detect) + `YOLO` (Object) + `Gemma Vision`.
+-   **Vision**: `OpenCV` (Motion Detect) + `YOLO` (Object) + 소형 VLM (Eye1/Eye2 정량화).
 -   **TTS**: **GPT-SoVITS** (High Quality Emotional TTS).
 -   **STT**: `Faster-Whisper` (Local).
 -   **Generation**: `Diffusers` (Stable Diffusion).

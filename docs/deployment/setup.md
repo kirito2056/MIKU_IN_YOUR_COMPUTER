@@ -9,7 +9,7 @@
 -   **FFmpeg**: 필수 (오디오 처리).
 
 ### Hardware Check
--   **GPU VRAM**: 최소 8GB (Qwen), 권장 16GB+ (Gemma 12B 4bit).
+-   **GPU VRAM**: 최소 8GB (Qwen), 권장 16GB+ (Gemma 4 12B 4bit).
 -   **Storage**: 여유 공간 100GB+ (모델 가중치 및 DB).
 
 ## 2. 설치 가이드 (Installation)
@@ -47,9 +47,10 @@ npm run postinstall
 
 ### 3.1. 모델 다운로드 및 파인튜닝
 -   **프로세스**: 
-    1.  기본 모델 수동 다운로드 (Gemma 3, GPT-SoVITS 등)
-    2.  파인튜닝 수행 (별도 프로세스)
-    3.  파인튜닝 완료된 모델 경로 지정
+    1.  기본 모델 다운로드: `cd backend && python scripts/download_gemma4_12b.py` (Gemma 4 12B → `models/Gemma4_12B`)
+    2.  GPT-SoVITS 등 기타 모델 수동 다운로드
+    3.  파인튜닝 수행 (별도 프로세스)
+    4.  파인튜닝 완료된 모델 경로 지정
 -   **저장 위치**: `D:/MIKU_DATA/models/`
 -   **버전 관리**: Google Drive에 별도 저장 (모델 + 성격 메타데이터 압축)
 

@@ -1,6 +1,6 @@
 # 파인튜닝 모듈
 
-미쿠의 성격에 맞게 Gemma 3 모델을 파인튜닝하는 도구들입니다.
+미쿠의 성격에 맞게 Gemma 4 12B 모델을 파인튜닝하는 도구들입니다.
 
 ## 빠른 시작
 
@@ -15,9 +15,9 @@ python finetuning/create_dataset.py
 ### 2. LoRA 파인튜닝 실행
 
 ```bash
-# 로컬 모델 사용 (backend/models/Gemma_12B 폴더)
+# 로컬 모델 사용 (backend/models/Gemma4_12B 폴더)
 python finetuning/train_lora.py \
-    --model_name models/Gemma_12B \
+    --model_name models/Gemma4_12B \
     --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
@@ -25,7 +25,7 @@ python finetuning/train_lora.py \
 
 # 또는 HuggingFace 모델 사용
 python finetuning/train_lora.py \
-    --model_name google/gemma-3-27b-it \
+    --model_name google/gemma-4-12B-it \
     --dataset_path datasets/miku_chat \
     --output_dir outputs/miku_lora \
     --num_epochs 3 \
@@ -35,7 +35,7 @@ python finetuning/train_lora.py \
 ### 3. 모델 테스트
 
 ```bash
-# 성격 테스트 (로컬 모델 사용, 기본값: models/Gemma_12B)
+# 성격 테스트 (로컬 모델 사용, 기본값: models/Gemma4_12B)
 python finetuning/test_model.py --mode test
 
 # 대화형 채팅
@@ -43,7 +43,7 @@ python finetuning/test_model.py --mode chat
 
 # 다른 모델 경로 지정
 python finetuning/test_model.py \
-    --base_model models/Gemma_27B \
+    --base_model models/Gemma4_12B \
     --lora_path outputs/miku_lora \
     --mode chat
 ```
@@ -69,4 +69,4 @@ python finetuning/test_model.py \
 ## 상세 가이드
 
 - 파인튜닝 절차: `docs/ai/finetuning_guide.md`
-- **Gemma 메타데이터 수정** (채팅 템플릿, config, metadata.json): `docs/ai/gemma_metadata.md`
+- **Gemma 4 메타데이터 수정** (채팅 템플릿, config, metadata.json): `docs/ai/gemma_metadata.md`

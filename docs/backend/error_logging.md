@@ -49,7 +49,7 @@
   "service": "gemma_inference",
   "message": "CUDA out of memory",
   "context": {
-    "model": "gemma-3-27b-4bit",
+    "model": "gemma-4-12b-4bit",
     "context_length": 4096,
     "vram_used": "15.8GB",
     "vram_total": "16GB"

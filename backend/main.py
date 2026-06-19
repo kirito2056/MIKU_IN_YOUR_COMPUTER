@@ -49,7 +49,7 @@ async def startup_event():
         print("⚠️  TTS 참조 음원 미설정 (음성 합성 비활성)")
 
     try:
-        model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma_12B")
+        model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma4_12B")
         lora_path = os.getenv("LORA_PATH", None)
         use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
 

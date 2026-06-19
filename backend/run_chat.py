@@ -31,7 +31,7 @@ def main():
     print()
     
     # 설정 읽기
-    model_path = os.getenv("LLM_MODEL_PATH", "models/miku_12B_merged")
+    model_path = os.getenv("LLM_MODEL_PATH", "models/miku_Gemma4_12B_merged")
     lora_path = os.getenv("LORA_PATH", None)
     use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
     
@@ -105,7 +105,7 @@ def main():
     except Exception as e:
         print(f"\n❌ 모델 로딩 실패: {e}")
         print("\n💡 확인 사항:")
-        print("   1. backend/models/Gemma_12B 폴더에 모델 파일이 있는지 확인")
+        print("   1. backend/models/Gemma4_12B 폴더에 모델 파일이 있는지 확인")
         print("   2. requirements.txt의 패키지가 설치되어 있는지 확인")
         print("   3. GPU가 있다면 CUDA가 제대로 설치되어 있는지 확인")
         sys.exit(1)
