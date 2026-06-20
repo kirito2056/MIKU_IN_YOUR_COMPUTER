@@ -2,29 +2,50 @@
 파인튜닝된 모델 테스트 스크립트
 LoRA 어댑터를 로드하여 추론 테스트를 수행합니다.
 """
+import json
 import torch
 import os
 from pathlib import Path
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor, AutoTokenizer
 from peft import PeftModel
 import argparse
+
+MIKU_SYSTEM_PROMPT = (
+    "너의 이름은 미쿠야. 너는 나를 '마스터'라고 부르며, "
+    "때로는 츤데레 같지만 사실은 나를 아주 많이 좋아해. "
+    "대답은 한국어로 짧고 귀엽게 해줘."
+)
+
+
+def resolve_model_path(model_name: str) -> str:
+    if os.path.isabs(model_name) or model_name.startswith("google/"):
+        return model_name
+    backend_dir = Path(__file__).parent.parent
+    return str(backend_dir / model_name)
+
+
+def is_gemma4_model(model_path: str) -> bool:
+    config_path = Path(model_path) / "config.json"
+    if not config_path.exists():
+        return False
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    return config.get("model_type") == "gemma4_unified"
+
 
 def load_model_and_tokenizer(
     base_model_name: str,
     lora_path: str,
-    use_4bit: bool = True
+    use_4bit: bool = True,
+    gemma4: bool = False,
 ):
     """모델과 토크나이저 로드"""
     from transformers import BitsAndBytesConfig
     
-    # 모델 경로 처리 (상대 경로인 경우 절대 경로로 변환)
-    model_path = base_model_name
-    if not os.path.isabs(model_path) and not model_path.startswith("google/") and not model_path.startswith("microsoft/"):
-        # 상대 경로인 경우 backend 디렉토리 기준으로 변환
-        backend_dir = Path(__file__).parent.parent
-        model_path = str(backend_dir / model_path)
-    
-    print(f"📥 베이스 모델 로딩: {base_model_name} (경로: {model_path})")
+    model_path = resolve_model_path(base_model_name)
+    gemma4 = gemma4 or is_gemma4_model(model_path)
+
+    print(f"📥 베이스 모델 로딩: {base_model_name} (경로: {model_path}, gemma4={gemma4})")
     
     # GPU 사용 가능 여부 확인
     has_gpu = torch.cuda.is_available()
@@ -65,16 +86,13 @@ def load_model_and_tokenizer(
         }
         
         if has_gpu:
-            load_kwargs["torch_dtype"] = torch.float16
+            load_kwargs["dtype" if gemma4 else "torch_dtype"] = torch.float16
             load_kwargs["device_map"] = device_map
-            # CUDA 커널 충돌 방지를 위해 SDPA 강제 활성화 (Gemma 4 이슈 우회)
-            load_kwargs["attn_implementation"] = "sdpa"
-            
+            load_kwargs["attn_implementation"] = "eager" if gemma4 else "sdpa"
             if bnb_config:
                 load_kwargs["quantization_config"] = bnb_config
         else:
-            # CPU 모드: 메모리 효율적인 로딩
-            load_kwargs["torch_dtype"] = torch.float32
+            load_kwargs["dtype" if gemma4 else "torch_dtype"] = torch.float32
             load_kwargs["device_map"] = "cpu"
             load_kwargs["low_cpu_mem_usage"] = True
             # 디스크 오프로드 폴더 설정 (선택사항)
@@ -84,10 +102,8 @@ def load_model_and_tokenizer(
             load_kwargs["offload_folder"] = offload_folder
             print(f"💾 디스크 오프로드 폴더: {offload_folder}")
         
-        base_model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            **load_kwargs
-        )
+        model_cls = AutoModelForMultimodalLM if gemma4 else AutoModelForCausalLM
+        base_model = model_cls.from_pretrained(model_path, **load_kwargs)
     except (ValueError, RuntimeError, MemoryError) as e:
         error_msg = str(e)
         if "CPU or the disk" in error_msg and use_4bit and has_gpu:
@@ -99,12 +115,15 @@ def load_model_and_tokenizer(
                 llm_int8_enable_fp32_cpu_offload=True,
             )
             device_map = {"": 0 if has_gpu else "cpu"}
-            base_model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                quantization_config=bnb_config,
-                device_map=device_map,
-                trust_remote_code=True,
-            )
+            model_cls = AutoModelForMultimodalLM if gemma4 else AutoModelForCausalLM
+            retry_kw = {
+                "quantization_config": bnb_config,
+                "device_map": device_map,
+                "trust_remote_code": True,
+            }
+            if gemma4:
+                retry_kw["attn_implementation"] = "eager"
+            base_model = model_cls.from_pretrained(model_path, **retry_kw)
         elif "out of memory" in error_msg.lower() or "killed" in error_msg.lower() or isinstance(e, MemoryError):
             print("\n❌ 메모리 부족 오류 발생!")
             print("\n💡 해결 방법:")
@@ -119,7 +138,12 @@ def load_model_and_tokenizer(
         else:
             raise
     
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    if gemma4:
+        processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
+    else:
+        processor = None
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
@@ -141,42 +165,53 @@ def load_model_and_tokenizer(
         print("   베이스 모델만 사용합니다 (LoRA 없음)")
         model = base_model
     
-    return model, tokenizer
+    return model, tokenizer, processor
 
 def generate_response(
     model,
     tokenizer,
     user_message: str,
+    processor=None,
     max_new_tokens: int = 512,  # RTX 5080 16GB에 맞게 기본값 증가 (안전한 범위)
     temperature: float = 0.7,
     top_p: float = 0.9
 ):
     """응답 생성"""
-    # Chat 템플릿 적용
-    messages = [{"role": "user", "content": user_message}]
-    input_text = tokenizer.apply_chat_template(
-        messages,
-        tokenize=False,
-        add_generation_prompt=True
-    )
-    
-    # 토크나이징
-    inputs = tokenizer(input_text, return_tensors="pt")
-    
-    # Gemma 4 오류 방지를 위한 token_type_ids 추가
-    if "token_type_ids" not in inputs:
-        inputs["token_type_ids"] = torch.zeros_like(inputs["input_ids"])
-    # 모델의 디바이스로 이동
-    if hasattr(model, 'device'):
-        inputs = inputs.to(model.device)
-    elif hasattr(model, 'hf_device_map'):
-        # device_map이 사용된 경우 첫 번째 디바이스 사용
-        device = next(iter(model.hf_device_map.values())) if model.hf_device_map else "cpu"
-        inputs = inputs.to(device)
-    elif torch.cuda.is_available():
-        inputs = inputs.to("cuda")
+    messages = [
+        {"role": "system", "content": MIKU_SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},
+    ] if processor is not None else [{"role": "user", "content": user_message}]
+
+    if processor is not None:
+        inputs = processor.apply_chat_template(
+            messages,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+            add_generation_prompt=True,
+        )
     else:
-        inputs = inputs.to("cpu")
+        input_text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        inputs = tokenizer(input_text, return_tensors="pt")
+        if "token_type_ids" not in inputs:
+            inputs["token_type_ids"] = torch.zeros_like(inputs["input_ids"])
+    if hasattr(model, "device"):
+        device = model.device
+    elif hasattr(model, "hf_device_map") and model.hf_device_map:
+        device = next(iter(model.hf_device_map.values()))
+    elif torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    if isinstance(inputs, dict):
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+    else:
+        inputs = inputs.to(device)
     
     # 생성
     with torch.no_grad():
@@ -206,16 +241,24 @@ def generate_response(
                 else:
                     raise
     
-    # 디코딩
+    if processor is not None:
+        input_len = inputs["input_ids"].shape[-1]
+        generated = outputs[0][input_len:]
+        response = processor.decode(generated, skip_special_tokens=False)
+        if hasattr(processor, "parse_response"):
+            parsed = processor.parse_response(response)
+            if isinstance(parsed, dict) and parsed.get("content"):
+                return parsed["content"].strip()
+        if "<|turn>model" in response:
+            response = response.split("<|turn>model")[-1]
+        return response.replace("<turn|>", "").strip()
+
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-    # 응답 부분만 추출
     if "assistant" in response.lower():
         response = response.split("assistant")[-1].strip()
-    
     return response
 
-def test_personality(model, tokenizer):
+def test_personality(model, tokenizer, processor=None):
     """성격 테스트 케이스 실행"""
     test_cases = [
         "너는 누구야?",
@@ -236,11 +279,11 @@ def test_personality(model, tokenizer):
         print(f"👤 사용자: {test_case}")
         print(f"🤖 미쿠: ", end="", flush=True)
         
-        response = generate_response(model, tokenizer, test_case)
+        response = generate_response(model, tokenizer, test_case, processor=processor)
         print(response)
         print()
 
-def interactive_chat(model, tokenizer):
+def interactive_chat(model, tokenizer, processor=None):
     """대화형 채팅 모드"""
     print("\n" + "="*60)
     print("💬 대화형 모드 (종료: 'quit' 또는 'exit')")
@@ -258,10 +301,10 @@ def interactive_chat(model, tokenizer):
                 continue
             
             print("🤖 미쿠: ", end="", flush=True)
-            response = generate_response(model, tokenizer, user_input)
+            response = generate_response(model, tokenizer, user_input, processor=processor)
             print(response)
             print()
-            
+
         except KeyboardInterrupt:
             print("\n\n👋 대화를 종료합니다.")
             break
@@ -272,10 +315,15 @@ def interactive_chat(model, tokenizer):
 def main():
     parser = argparse.ArgumentParser(description="파인튜닝된 모델 테스트")
     parser.add_argument(
-        "--base_model", 
-        type=str, 
+        "--base_model",
+        type=str,
         default="models/Gemma4_12B",
-        help="베이스 모델 경로 (기본값: models/Gemma4_12B, backend/models/Gemma4_12B 폴더 사용)"
+        help="베이스 모델 경로 (기본값: models/Gemma4_12B, backend/models/Gemma4_12B 폴더 사용)",
+    )
+    parser.add_argument(
+        "--gemma4",
+        action="store_true",
+        help="Gemma 4 모델 로딩 (config.json 자동 감지도 가능)",
     )
     parser.add_argument(
         "--lora_path",
@@ -319,19 +367,20 @@ def main():
     lora_path = None if args.no_lora else args.lora_path
     
     # 모델 로드
-    model, tokenizer = load_model_and_tokenizer(
+    model, tokenizer, processor = load_model_and_tokenizer(
         args.base_model,
         lora_path,
-        use_4bit=args.use_4bit
+        use_4bit=args.use_4bit,
+        gemma4=args.gemma4,
     )
     
     print("\n✅ 모델 로딩 완료!\n")
     
     # 모드에 따라 실행
     if args.mode == "test":
-        test_personality(model, tokenizer)
+        test_personality(model, tokenizer, processor=processor)
     elif args.mode == "chat":
-        interactive_chat(model, tokenizer)
+        interactive_chat(model, tokenizer, processor=processor)
 
 if __name__ == "__main__":
     main()
