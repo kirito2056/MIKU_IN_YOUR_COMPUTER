@@ -2,9 +2,20 @@
 Gemma 4 12B QLoRA 파인튜닝 스크립트
 미쿠 성격 데이터셋으로 LoRA 어댑터를 학습합니다.
 """
+import os
+import sys
+
+# 메모리 단편화로 인한 가짜 OOM/스파이크를 줄인다 (torch import 전에 설정해야 적용됨)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import argparse
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -116,6 +127,12 @@ def main() -> None:
     parser.add_argument("--max_seq_length", type=int, default=512)
     parser.add_argument("--use_4bit", action="store_true", default=True)
     parser.add_argument("--no_4bit", action="store_false", dest="use_4bit")
+    parser.add_argument(
+        "--max_vram_gb",
+        type=float,
+        default=14.0,
+        help="이 프로세스가 사용할 VRAM 상한(GB). 초과 시 시스템 freeze 대신 OOM 에러로 종료된다. 0이면 미적용.",
+    )
     args = parser.parse_args()
 
     backend_dir = Path(__file__).parent.parent
@@ -132,8 +149,17 @@ def main() -> None:
     has_gpu = torch.cuda.is_available()
     device_map = "auto" if has_gpu else "cpu"
     if has_gpu:
+        total_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
         print(f"   GPU: {torch.cuda.get_device_name(0)}")
-        print(f"   VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+        print(f"   VRAM: {total_vram_gb:.2f} GB")
+
+        if args.max_vram_gb and args.max_vram_gb > 0:
+            fraction = min(args.max_vram_gb / total_vram_gb, 1.0)
+            torch.cuda.set_per_process_memory_fraction(fraction, 0)
+            print(
+                f"   VRAM 상한: {args.max_vram_gb:.1f} GB "
+                f"(전체의 {fraction*100:.0f}%) — 초과 시 freeze 대신 OOM 에러로 종료"
+            )
     else:
         print("   ⚠️  GPU를 찾을 수 없습니다. CPU 모드로 실행됩니다.")
         args.use_4bit = False
@@ -191,7 +217,9 @@ def main() -> None:
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
-        modules_to_save=["lm_head", "embed_tokens"],
+        # 채팅 마커(<|turn> 등)는 베이스 체크포인트에 이미 있는 special token이라
+        # 임베딩/lm_head 를 풀학습할 필요가 없다. 작은 데이터셋에서 풀학습하면
+        # 오버피팅·기존 능력 손상(catastrophic forgetting) 위험이 커지므로 제외한다.
     )
 
     if args.use_4bit:
@@ -230,6 +258,7 @@ def main() -> None:
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.learning_rate,
+        weight_decay=0.01,
         bf16=train_bf16,
         fp16=train_fp16,
         logging_steps=10,
