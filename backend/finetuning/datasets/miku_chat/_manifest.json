@@ -1,15 +1,37 @@
 {
   "source": "miku_personality_chat.json",
   "folders": {
-    "care_comfort": 162,
-    "identity_relation": 162,
-    "playful_daily": 217,
-    "safety_intrusion": 158,
-    "sensory_io": 176,
-    "social_jealousy": 157,
-    "tech_coding": 184,
-    "wellness_habits": 164,
-    "world_system": 184
+    "care_comfort": 170,
+    "identity_relation": 186,
+    "playful_daily": 280,
+    "safety_intrusion": 122,
+    "sensory_io": 151,
+    "social_jealousy": 162,
+    "tech_coding": 201,
+    "wellness_habits": 209,
+    "world_system": 160
   },
-  "note": "학습: --dataset_path datasets/miku_chat | 구조 설명: docs/ai/miku_chat_dataset.md"
+  "note": "학습: --dataset_path datasets/miku_chat | 구조 설명: docs/ai/miku_chat_dataset.md",
+  "multiturn": {
+    "care_comfort": 4,
+    "identity_relation": 4,
+    "playful_daily": 5,
+    "safety_intrusion": 4,
+    "sensory_io": 4,
+    "social_jealousy": 4,
+    "tech_coding": 4,
+    "wellness_habits": 5,
+    "world_system": 4
+  },
+  "paraphrased": {
+    "care_comfort": 0,
+    "identity_relation": 0,
+    "playful_daily": 0,
+    "safety_intrusion": 0,
+    "sensory_io": 0,
+    "social_jealousy": 0,
+    "tech_coding": 0,
+    "wellness_habits": 0,
+    "world_system": 0
+  }
 }
