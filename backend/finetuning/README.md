@@ -82,6 +82,10 @@ python finetuning/test_model.py \
 
 - `create_dataset.py`: 성격 매트릭스 시드 → `miku_matrix_seed_chat.json` 덤프
 - `split_miku_dataset.py`: 단일 Chat JSON → `datasets/miku_chat/<상황>/chat.json` 분할·응답 변형
+- `generate_synthetic_data.py`: 의도 매칭 단일턴 합성 데이터 생성. `--clean`(미스매치만 제거), `--rebuild`(매칭 데이터로 재작성), `--target N`(카테고리당 목표 수)
+- `generate_multiturn_data.py`: 맥락이 이어지는 멀티턴 대화를 `datasets/miku_chat/<상황>/multiturn.json` 으로 생성
+- `generate_paraphrase_data.py`: 로컬 LLM으로 의도/페르소나 보존 패러프레이즈를 만들어 `datasets/miku_chat/<상황>/paraphrased.json` 으로 저장. 같은 의도 그룹 안에서만 조합해 미스매치 방지. 모델 없이 검증하려면 `--self-test`
+- `cap_repetition.py`: 동일 응답 과편중(mode collapse 위험)을 `--cap N` 으로 제한. 자를 때 서로 다른 user 발화를 우선 보존. `--dry-run` 으로 분포만 확인 가능
 - `merge_datasets.py`: 커스텀 JSON 병합 (`--into` 로 샤드에 이어 붙이기 또는 `--out` 단일 파일)
 - `train_lora_gemma4.py`: Gemma 4 12B QLoRA 파인튜닝
 - `train_lora.py`: Gemma 3 LoRA 파인튜닝 (레거시)
