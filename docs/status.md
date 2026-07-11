@@ -30,6 +30,7 @@
 - [x] **구 Gemma 3 산출물 정리**: `Gemma_12B`(베이스), `miku_12B_merged`(병합본), `miku_lora_v1/v2`, 구 체크포인트 등 약 47GB 삭제 (2026-07-12). 현재 `models/`에는 Gemma4 베이스 + `outputs/miku_gemma4_v1~v4` + GGUF만 유지
 - [x] **추론 엔진 결정 → llama.cpp 전환 완료** (2026-07-12): `services/llamacpp_service.py` — llama-server(OpenAI 호환 API) 자동 기동 + SSE 스트리밍. 기본 백엔드가 GGUF v4 서빙 (env `LLM_BACKEND=transformers`로 폴백 가능). **로드 ~5초, 생성 평균 93 tok/s** (transformers 4-bit: 로드 수 분)
 - [x] **GGUF v4 재생성** (2026-07-12): 기존 Q4_K_M이 v2 어댑터 기반(프롬프트 없으면 Gemma 정체성 노출)이어서 v4로 ②③④ 재변환 → `miku_gemma4_v4_Q4_K_M.gguf`
+- [ ] **torch 지연 import (맥 실행 대비)**: `main.py`가 상단에서 `llm_service`(torch/transformers 의존)를 무조건 import → llamacpp 모드에서도 torch 필요. 맥에서는 torch 미설치 시 서버 기동 불가하므로 `LLM_BACKEND=transformers` 선택 시에만 지연 import하도록 수정 예정. 수정 후 맥 의존성은 `fastapi uvicorn websockets requests python-dotenv`만으로 충분
 
 ### 3. 모델 파인튜닝 (Personality)
 - [x] **데이터셋 구축 파이프라인**: 상황별 9카테고리 × (chat/multiturn/paraphrased), 합성·패러프레이즈·반복제한(`cap_repetition`)·자연화(`naturalize_chat_data`) 스크립트 완비

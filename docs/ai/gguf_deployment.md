@@ -175,7 +175,8 @@ ollama run miku
 - env 설정: `LLAMA_SERVER_URL`(기본 `http://127.0.0.1:8080`), `LLAMA_GGUF_PATH`,
   `LLAMA_SERVER_EXE`(기본: `llama.cpp/release-cuda/llama-server.exe` → 없으면 PATH의 `llama-server`),
   `LLM_BACKEND=transformers` 로 기존 HF 4-bit 경로 폴백.
-- 맥에서는 `brew install llama.cpp` 후 GGUF만 복사하면 같은 백엔드 코드가 그대로 동작.
+- 맥에서는 `brew install llama.cpp`(Metal 가속 기본 활성) 후 GGUF만 복사하면 같은 백엔드 코드가 그대로 동작.
+  - ⚠️ 현재 `main.py`가 llamacpp 모드에서도 torch를 import함 (지연 import 수정 전까지는 맥에도 torch 설치 필요 → status.md TODO 참고)
 
 ## 8. 재학습 후 재변환 (요약)
 
