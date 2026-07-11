@@ -26,7 +26,7 @@
 - [x] **모델 확보**: Gemma 4 12B(`gemma4_unified`)로 전환 완료 (2026-06, Gemma 3에서 마이그레이션)
 - [x] **기본 추론**: `services/llm_service.py` — HuggingFace `transformers` + 4-bit 양자화 + 스트리밍(`TextIteratorStreamer`) 구현 완료
 - [x] **GGUF 배포 파이프라인**: 베이스→GGUF 변환, LoRA 병합(`llama-export-lora`), Q4_K_M 양자화(6.87GB)까지 확립. LM Studio(Windows)/Mac(Metal) 구동 확인 → `docs/ai/gguf_deployment.md`
-- [ ] **런타임 모델 경로 정리**: `llm_service.py` 기본값(`models/miku_Gemma4_12B_merged`)과 실제 디스크(`models/miku_12B_merged`), `main.py` env 기본값(`models/Gemma4_12B`)이 제각각 — 파인튜닝 모델을 기본 서빙하도록 통일 필요
+- [x] **런타임 모델 경로 정리**: 기본값을 베이스(`models/Gemma4_12B`) + LoRA v4(`models/outputs/miku_gemma4_v4`)로 통일 — 백엔드 기동 시 파인튜닝 모델 자동 로드 (env `LLM_MODEL_PATH`/`LORA_PATH`로 오버라이드, `LORA_PATH=""`면 베이스만). ※ `models/miku_12B_merged`는 구 Gemma 3 병합본(레거시)
 - [ ] **추론 엔진 결정**: 백엔드 서빙을 transformers 유지 vs llama.cpp(GGUF) 전환할지 결정 필요 (기존 ExLlamaV2 계획은 GGUF 파이프라인으로 사실상 대체)
 
 ### 3. 모델 파인튜닝 (Personality)
@@ -66,8 +66,9 @@
 3. ~~**TTS 백엔드 파이프라인 통합 + 립싱크**~~ ✅ 완료 (2026-05-29)
 4. ~~**파인튜닝 (LoRA) 진행**~~ ✅ 완료 (2026-06, v1~v4 + GGUF 양자화)
 5. **파인튜닝 모델 런타임 연동**
-   - 백엔드 기본 모델을 파인튜닝 병합 모델로 통일 (경로 불일치 정리)
+   - ~~백엔드 기본 모델을 파인튜닝 모델로 통일 (경로 불일치 정리)~~ ✅ 완료 (2026-07-12, 베이스 + LoRA v4)
    - transformers 유지 vs llama.cpp(GGUF) 서빙 전환 결정
+   - 백엔드 기동 후 실대화로 미쿠 정체성 응답 검증
 6. **정체성 강화 재학습 (v5)**
    - adversarial·naturalize 데이터 반영 → 시스템 프롬프트 없이도 미쿠 정체성 유지
    - 재변환은 `docs/ai/gguf_deployment.md` §7 (②③④만 재실행)

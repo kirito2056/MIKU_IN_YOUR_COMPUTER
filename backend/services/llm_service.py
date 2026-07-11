@@ -16,16 +16,16 @@ class LLMService:
     
     def __init__(
         self,
-        model_path: str = "models/miku_Gemma4_12B_merged",
-        lora_path: Optional[str] = None,
+        model_path: str = "models/Gemma4_12B",
+        lora_path: Optional[str] = "models/outputs/miku_gemma4_v4",
         use_4bit: bool = True,
         device: str = "auto"
     ):
         """
         LLM 서비스 초기화
-        
+
         Args:
-            model_path: 모델 경로 (기본값: "models/miku_Gemma4_12B_merged", backend/models/miku_Gemma4_12B_merged 폴더)
+            model_path: 베이스 모델 경로 (기본값: "models/Gemma4_12B")
             lora_path: LoRA 어댑터 경로 (선택사항)
             use_4bit: 4-bit 양자화 사용 여부
             device: 디바이스 ("auto", "cuda", "cpu")
@@ -265,8 +265,8 @@ _llm_service: Optional[LLMService] = None
 
 
 def get_llm_service(
-    model_path: str = "models/miku_Gemma4_12B_merged",
-    lora_path: Optional[str] = None,
+    model_path: str = "models/Gemma4_12B",
+    lora_path: Optional[str] = "models/outputs/miku_gemma4_v4",
     use_4bit: bool = True
 ) -> LLMService:
     """

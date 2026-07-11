@@ -50,7 +50,7 @@ async def startup_event():
 
     try:
         model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma4_12B")
-        lora_path = os.getenv("LORA_PATH", None)
+        lora_path = os.getenv("LORA_PATH", "models/outputs/miku_gemma4_v4")
         use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
 
         print(f"🚀 LLM 서비스 초기화 중...")
