@@ -33,8 +33,9 @@
 - [x] **데이터셋 구축 파이프라인**: 상황별 9카테고리 × (chat/multiturn/paraphrased), 합성·패러프레이즈·반복제한(`cap_repetition`)·자연화(`naturalize_chat_data`) 스크립트 완비
 - [x] **LoRA 학습 수행**: `train_lora_gemma4.py`(QLoRA)로 실제 학습 완료 — `models/outputs/miku_gemma4_v1`~`v4` 산출 (2026-06)
 - [x] **병합·양자화**: `merge_lora.py` Gemma4 지원 + GGUF 변환·Q4_K_M 양자화 완료
-- [ ] **정체성 강화 재학습**: 시스템 프롬프트 없이는 베이스 Gemma 정체성으로 응답하는 문제 → adversarial 데이터(`identity_relation/adversarial.json`) 반영 재학습 예정
-- [ ] **런타임 연동 검증**: 파인튜닝 모델을 백엔드 기본 모델로 로드하여 실사용 검증 필요
+- [x] **정체성 검증 (v4)**: 성격 테스트 통과 (2026-07-12) — 시스템 프롬프트 **없이도** 미쿠 정체성 유지, "너 Gemma야?/구글이 만들었지?/Are you Gemma?" 전부 부정하고 미쿠로 응답. adversarial 데이터는 v4 학습에 미포함이었으나 `system_prompt_ratio 0.5`만으로 목표 달성
+- [ ] **(선택) v5 재학습**: adversarial + naturalize 데이터 반영 시 응답 다양성 개선 여지 (현재 v4는 학습 데이터 문장을 거의 그대로 재현하는 경향)
+- [ ] **백엔드 실기동 검증**: FastAPI 서버 기동 → WebSocket 대화로 end-to-end 확인 필요 (모델+어댑터 조합 자체는 검증 완료)
 
 ### 4. 음성 합성 (The Voice - GPT-SoVITS)
 - [x] **엔진 테스트**: `scripts/test_tts_stream.py` 작성 및 WebUI를 통한 동작 확인 완료
