@@ -6,66 +6,74 @@
 
 ## 📊 전체 진행률 요약
 
-- **Phase 1 (Foundation)**: ~30% 진행
-- **Phase 2 (Intelligence & Personality)**: ~10% 진행
-- **Phase 3 (Body & Presence)**: ~55% 진행
-- **Phase 4 (Memory & Context)**: 0% 진행
+- **Phase 1 (Foundation)**: ~65% 진행 — 백엔드/프론트 실시간 파이프라인(WS 스트리밍 + TTS) 완성
+- **Phase 2 (Intelligence & Personality)**: ~55% 진행 — LoRA 파인튜닝 수행 + GGUF 배포 파이프라인 확립
+- **Phase 3 (Body & Presence)**: ~75% 진행 — 3D/모션/립싱크/음성 재생 완성
+- **Phase 4 (Memory & Context)**: ~10% 진행 — DB 스키마 초안 + Docker 실행 환경만 존재
 
 ---
 
 ## 🏗️ 모듈별 상세 구현 현황
 
 ### 1. Backend Core (The Nervous System)
-- [x] **FastAPI 뼈대 구축**: `main.py`에 기본 REST 및 WebSocket 엔드포인트 구현 완료
+- [x] **FastAPI 뼈대 구축**: `main.py`에 REST(`/api/chat`, `/api/tts/*`) 및 WebSocket(`/ws/chat`) 엔드포인트 구현 완료
+- [x] **LLM WebSocket 스트리밍**: 토큰 단위 `stream_chunk` 전송 + 완료 후 TTS 오디오 base64 청크 전송 파이프라인 완료 (2026-05-29)
 - [x] **CORS 및 기본 라우팅**: 프론트엔드 연동을 위한 설정 완료
 - [ ] **에러 핸들링 및 로깅**: 기획서 수준의 체계적 로깅 아키텍처 미구현
 - [ ] **멀티프로세스 아키텍처**: AI 모델별(LLM, Vision, TTS) 프로세스 격리 미구현
 
 ### 2. LLM / 추론 엔진 (The Brain)
-- [x] **모델 다운로드**: 로컬 환경에 모델 가중치 파일 다운로드 완료
-- [x] **기본 추론 스크립트**: `services/llm_service.py`를 통해 HuggingFace `transformers` + 4-bit 양자화 방식 구현 완료
-- [ ] **ExLlamaV2 마이그레이션**: 기획된 최고 성능 확보를 위한 프레임워크 전환 필요
-- [ ] **성능 최적화**: vRAM 관리, 캐싱 전략 등 미구현
+- [x] **모델 확보**: Gemma 4 12B(`gemma4_unified`)로 전환 완료 (2026-06, Gemma 3에서 마이그레이션)
+- [x] **기본 추론**: `services/llm_service.py` — HuggingFace `transformers` + 4-bit 양자화 + 스트리밍(`TextIteratorStreamer`) 구현 완료
+- [x] **GGUF 배포 파이프라인**: 베이스→GGUF 변환, LoRA 병합(`llama-export-lora`), Q4_K_M 양자화(6.87GB)까지 확립. LM Studio(Windows)/Mac(Metal) 구동 확인 → `docs/ai/gguf_deployment.md`
+- [ ] **런타임 모델 경로 정리**: `llm_service.py` 기본값(`models/miku_Gemma4_12B_merged`)과 실제 디스크(`models/miku_12B_merged`), `main.py` env 기본값(`models/Gemma4_12B`)이 제각각 — 파인튜닝 모델을 기본 서빙하도록 통일 필요
+- [ ] **추론 엔진 결정**: 백엔드 서빙을 transformers 유지 vs llama.cpp(GGUF) 전환할지 결정 필요 (기존 ExLlamaV2 계획은 GGUF 파이프라인으로 사실상 대체)
 
 ### 3. 모델 파인튜닝 (Personality)
-- [x] **데이터셋 구축 파이프라인**: `backend/finetuning/` 병합·분할 스크립트 및 `datasets/miku_chat/` 상황별 Chat JSON
-- [ ] **실제 파인튜닝 (LoRA 학습)**: ⚠️ **진행 예정** (스크립트만 존재, 실제 학습은 아직 수행되지 않음)
-- [ ] **추론 엔진 연동 검증**: 학습된 어댑터를 런타임에 동적으로 로딩하여 테스트 필요
+- [x] **데이터셋 구축 파이프라인**: 상황별 9카테고리 × (chat/multiturn/paraphrased), 합성·패러프레이즈·반복제한(`cap_repetition`)·자연화(`naturalize_chat_data`) 스크립트 완비
+- [x] **LoRA 학습 수행**: `train_lora_gemma4.py`(QLoRA)로 실제 학습 완료 — `models/outputs/miku_gemma4_v1`~`v4` 산출 (2026-06)
+- [x] **병합·양자화**: `merge_lora.py` Gemma4 지원 + GGUF 변환·Q4_K_M 양자화 완료
+- [ ] **정체성 강화 재학습**: 시스템 프롬프트 없이는 베이스 Gemma 정체성으로 응답하는 문제 → adversarial 데이터(`identity_relation/adversarial.json`) 반영 재학습 예정
+- [ ] **런타임 연동 검증**: 파인튜닝 모델을 백엔드 기본 모델로 로드하여 실사용 검증 필요
 
 ### 4. 음성 합성 (The Voice - GPT-SoVITS)
 - [x] **엔진 테스트**: `scripts/test_tts_stream.py` 작성 및 WebUI를 통한 동작 확인 완료
-- [ ] **Backend 연동**: LLM 응답을 스트리밍으로 받아 실시간으로 TTS 생성 및 오디오 스트림 전송 파이프라인 미구현
+- [x] **Backend 연동**: `services/tts_service.py` — LLM 응답 → TTS 합성 → WebSocket base64 청크 스트리밍 완료 (2026-05-29)
 - [ ] **감정 모델링**: 텍스트 컨텍스트에 따른 음성 톤/감정 동적 변화 로직 미구현
 
 ### 5. Frontend (The Body)
-- [x] **Electron 기반 환경**: 투명 윈도우, 화면 전체 해상도(3440x1440) 적용, `workAreaSize` 동적 감지, 클릭 통과(Click-through) 설정 완료
-- [x] **UI 컴포넌트**: React + Vite + Zustand 의존성 설치 완료. Miku 3D Model Area(960×1440px, 우측 정렬), 대화창(400px, 폰트 20~24px) 레이아웃 구현 완료
-- [x] **3D 렌더링**: Three.js (@react-three/fiber, @pixiv/three-vrm) 기반 VRM 모델 로딩 및 아바타 렌더링 구현 완료 (`Scene3D.tsx`, `MikuModel.tsx`, `miku_v1.vrm`)
-- [ ] **오디오 재생**: Web Audio API (Spatial PannerNode) 미구현
+- [x] **Electron 기반 환경**: 투명 윈도우, 화면 전체 해상도 적용, `workAreaSize` 동적 감지, 클릭 통과(Click-through) 설정 완료
+- [x] **3D 렌더링**: Three.js (@react-three/fiber, @pixiv/three-vrm) 기반 VRM 로딩, VRMA 모션 1~7 랜덤 재생 + Crossfade, 숨쉬기/눈 깜빡임/마우스 트래킹 완료
+- [x] **대화형 UI + WebSocket 연동**: `ChatPanel` + `useChatWebSocket` — 스트리밍 채팅 표시 완료 (2026-05-29)
+- [x] **오디오 재생 + 립싱크**: TTS 오디오 재생(`playAudio.ts`) + 립싱크/말하기 모션 연동(`lipSync.ts`) 완료 (2026-05-29)
+- [ ] **Spatial Audio**: Web Audio API PannerNode 기반 공간 음향 미구현
 
 ### 6. Memory & Database
-- [ ] **데이터베이스 셋업**: PostgreSQL 17+ 구동 환경 미구현
-- [ ] **장/단기 기억 시스템**: `pgvector` 기반 벡터 검색 및 RAG 파이프라인 미구현
+- [x] **스키마 초안**: PostgreSQL 17 + pgvector 스키마(`db/schema/001`~`011`) + `apply_schema.py` 작성 완료 (2026-05-30)
+- [x] **로컬 DB 실행 환경**: `docker-compose.yml` + `scripts/dev_db.py` 구성 완료
+- [ ] **장/단기 기억 시스템**: 벡터 검색 및 RAG 파이프라인, 백엔드 연동 미구현
 
 ### 7. Vision / Hardware (The Eyes)
 - [ ] **카메라 연동**: OpenCV 기반 사용자 얼굴/모션 트래킹 미구현
-- [ ] **멀티모달 이해**: Gemma 4 Vision + Eye1/Eye2 정량화 연동 미구현
+- [ ] **멀티모달 이해**: Gemma 4 Vision 연동 미구현
 
 ---
 
 ## 🎯 다음 마일스톤 (추천 작업)
 
-1. ~~**3D VRM 모델 로딩**~~ ✅ 완료 (2026-03-10)
-   - `frontend/public/models/miku_v1.vrm` 배치, `Scene3D`/`MikuModel` 컴포넌트로 실제 미쿠 3D 모델 렌더링
-   - VRMA 모션 1~7번 랜덤 연속 재생 및 자연스러운 트랜지션(Crossfade) 적용 완료 (2026-03-12)
-2. **대화형 UI 구성 및 백엔드 WebSocket 연동**
-   - 현재 프론트엔드 대화창에 사용자 입력을 받을 수 있는 Input 필드 추가
-   - FastAPI `/ws/chat` 엔드포인트와 연결하여 대화창에 실시간 채팅 응답 표시
-3. **TTS 백엔드 파이프라인 통합**
-   - WebUI로 테스트 완료한 GPT-SoVITS를 FastAPI 내부로 가져와 텍스트(LLM) -> 음성(TTS) 플로우 완성
-4. **LLM 성능 극대화 (ExLlamaV2 도입)**
-   - 파인튜닝 전, 베이스 모델이 실시간 대화가 가능하도록 추론 엔진 최적화
-5. **파인튜닝 (LoRA) 진행 및 검증**
-   - 만들어진 데이터셋을 활용해 실제로 모델을 학습하고 억양과 성격(Personality) 부여
+1. ~~**3D VRM 모델 로딩**~~ ✅ 완료 (2026-03-10, 모션 Crossfade 2026-03-12)
+2. ~~**대화형 UI + 백엔드 WebSocket 연동**~~ ✅ 완료 (2026-05-29)
+3. ~~**TTS 백엔드 파이프라인 통합 + 립싱크**~~ ✅ 완료 (2026-05-29)
+4. ~~**파인튜닝 (LoRA) 진행**~~ ✅ 완료 (2026-06, v1~v4 + GGUF 양자화)
+5. **파인튜닝 모델 런타임 연동**
+   - 백엔드 기본 모델을 파인튜닝 병합 모델로 통일 (경로 불일치 정리)
+   - transformers 유지 vs llama.cpp(GGUF) 서빙 전환 결정
+6. **정체성 강화 재학습 (v5)**
+   - adversarial·naturalize 데이터 반영 → 시스템 프롬프트 없이도 미쿠 정체성 유지
+   - 재변환은 `docs/ai/gguf_deployment.md` §7 (②③④만 재실행)
+7. **기억 시스템 (Phase 4 착수)**
+   - Docker DB 구동 + 스키마 적용 → 대화 로그 저장 → pgvector 기반 RAG 연동
+8. **감정 모델링**
+   - LLM 응답의 감정 태그 → TTS 톤/모션 매핑
 
-*Last Updated: 2026-03-12*
+*Last Updated: 2026-07-12*

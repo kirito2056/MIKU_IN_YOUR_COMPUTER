@@ -16,10 +16,11 @@
 
 ---
 
-*Last Updated: 2026-03-02*
+*Last Updated: 2026-07-12*
 
 ## 📝 최근 추가 문서
 
+- **GGUF 변환·배포** (`ai/gguf_deployment.md`): LoRA 병합 → Q4_K_M 양자화 → llama.cpp/Ollama/LM Studio 구동 워크플로
 - **개발 현황 트래킹** (`status.md`): 기획 대비 구현 진척도 및 다음 마일스톤 관리
 - **모바일 플랫폼 기획** (`planning/09_mobile_platform.md`): iOS/Android Remote Client, 외부 접속(nginx), 갤럭시 워치 역할
 - **벡터 검색 최적화** (`backend/vector_search_optimization.md`): pgvector 인덱스 전략, 검색 알고리즘, 성능 최적화
