@@ -15,6 +15,7 @@ load_dotenv()
 
 # 서비스 임포트
 from services.llm_service import get_llm_service, LLMService
+from services.llamacpp_service import get_llamacpp_service
 from services.tts_service import get_tts_service, TTSService, TTSServiceError
 
 app = FastAPI(title="MIKU IN YOUR COMPUTER (Backend)")
@@ -49,20 +50,27 @@ async def startup_event():
         print("⚠️  TTS 참조 음원 미설정 (음성 합성 비활성)")
 
     try:
-        model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma4_12B")
-        lora_path = os.getenv("LORA_PATH", "models/outputs/miku_gemma4_v4")
-        use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
+        # llamacpp(기본): llama-server + GGUF / transformers: HF 4-bit 로드
+        llm_backend = os.getenv("LLM_BACKEND", "llamacpp").lower()
 
-        print(f"🚀 LLM 서비스 초기화 중...")
-        print(f"   모델 경로: {model_path}")
-        if lora_path:
-            print(f"   LoRA 경로: {lora_path}")
+        if llm_backend == "llamacpp":
+            print("🚀 LLM 서비스 초기화 중... (llama.cpp)")
+            llm_service = get_llamacpp_service()
+        else:
+            model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma4_12B")
+            lora_path = os.getenv("LORA_PATH", "models/outputs/miku_gemma4_v4")
+            use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
 
-        llm_service = get_llm_service(
-            model_path=model_path,
-            lora_path=lora_path,
-            use_4bit=use_4bit
-        )
+            print(f"🚀 LLM 서비스 초기화 중... (transformers)")
+            print(f"   모델 경로: {model_path}")
+            if lora_path:
+                print(f"   LoRA 경로: {lora_path}")
+
+            llm_service = get_llm_service(
+                model_path=model_path,
+                lora_path=lora_path,
+                use_4bit=use_4bit
+            )
         print("✅ LLM 서비스 준비 완료!")
     except Exception as e:
         print(f"⚠️  모델 로딩 실패: {e}")
