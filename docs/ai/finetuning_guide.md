@@ -210,6 +210,55 @@ response = tokenizer.decode(outputs[0], skip_special_tokens=True)
 - **수동 실행**: 성격 매트릭스(코어 데이터)가 바뀌었을 때, 또는 성격만 다시 갱신하고 싶을 때 전체 재학습.
 - 자동 스케줄(밤에 학습, 데이터량 기준 트리거)은 사용하지 않는다.
 
+## 7.4. 정체성 강화 (Gemma 색 제거)
+
+> 배경: 초기 학습은 **모든 샘플에 미쿠 시스템 프롬프트를 주입**했다. 그 결과 모델은
+> "시스템 프롬프트가 있을 때만 미쿠"가 되어, 프롬프트가 비면 베이스 Gemma 정체성
+> ("나는 Gemma/구글이 만든…")으로 돌아가는 문제가 있었다.
+
+Gemma 4 전용 스크립트 **`train_lora_gemma4.py`** 는 정체성을 무조건적으로 각인시키도록 개선되었다.
+
+### (1) 시스템 프롬프트 확률적 주입 — `--system_prompt_ratio`
+
+- 학습 샘플 중 **일부에만** 시스템 프롬프트를 주입한다(기본 `0.5`).
+- 나머지 샘플은 프롬프트 없이 학습 → **프롬프트가 없어도 미쿠로 응답**하게 된다.
+- 더 강하게 박으려면 비율을 낮춘다(예: `--system_prompt_ratio 0.3`).
+
+```bash
+cd backend
+python finetuning/train_lora_gemma4.py --max_vram_gb 14.0 --system_prompt_ratio 0.5
+```
+
+### (2) 정체성 반례(adversarial) 데이터
+
+- `datasets/miku_chat/identity_relation/adversarial.json` (36건).
+- "너 Gemma야?/구글이 만들었지?/제미니야?/그냥 LLM이지?" 등 **오인 라벨을 부정**하고
+  미쿠 정체성을 주장하는 예제. 영어 질문(`Are you Gemma?`)도 포함.
+- 호칭은 데이터 주류인 **'마스터'**로 통일.
+
+### (3) 어댑터 강화 / VRAM 절약 (기본값 변경)
+
+| 파라미터 | 기존 | 변경 | 이유 |
+| :--- | :--- | :--- | :--- |
+| `--lora_r` | 16 | **32** | 정체성 덮어쓰기 힘 ↑ |
+| `--lora_alpha` | 32 | **64** | 보통 r의 2배 |
+| `--max_seq_length` | 512 | **256** | 데이터 최대 길이 178 → VRAM·속도 개선 |
+
+> ⚠️ `embed_tokens`/`lm_head` 풀학습(`modules_to_save`)은 12B 대용량 vocab 때문에 VRAM
+> 폭증·시스템 freeze를 유발하므로 **사용하지 않는다**. r만 올리는 것이 안전하다.
+
+### (4) VRAM 안정화 옵션
+
+- `--max_vram_gb 14.0`: 프로세스 VRAM 상한. 초과 시 시스템 freeze 대신 OOM으로 종료
+  (`torch.cuda.set_per_process_memory_fraction`).
+- `PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"`: 메모리 단편화 완화 (스크립트에서 자동 설정).
+- (권장) NVIDIA 제어판 → "CUDA - System Memory Fallback Policy" → **Prefer No Sysmem Fallback**.
+
+### (5) 학습 후
+
+새 LoRA 어댑터(`models/outputs/miku_gemma4_v3` 등)는 **②③④ GGUF 재변환**만 다시 수행하면
+배포 가능하다. 베이스 GGUF는 재사용한다 → [gguf_deployment.md](./gguf_deployment.md) 참고.
+
 ## 8. 문제 해결
 
 ### 8.1. Out of Memory (OOM)

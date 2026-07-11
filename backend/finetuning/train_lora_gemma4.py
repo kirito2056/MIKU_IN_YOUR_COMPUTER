@@ -16,6 +16,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import argparse
 import json
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -58,30 +59,50 @@ def resolve_model_path(model_name: str) -> str:
     return str(backend_dir / model_name)
 
 
-def format_messages(example: dict) -> list:
+def format_messages(example: dict, inject_system: bool = True) -> list:
     messages = example["messages"]
     formatted = []
     has_system = any(msg.get("role") == "system" for msg in messages)
-    if not has_system:
+    # inject_system=False 인 샘플은 시스템 프롬프트 없이 학습되어,
+    # 프롬프트가 없어도 미쿠 정체성을 무조건적으로 유지하도록 만든다.
+    if inject_system and not has_system:
         formatted.append({"role": "system", "content": MIKU_SYSTEM_PROMPT})
     formatted.extend(messages)
     return formatted
 
 
-def load_and_prepare_dataset(dataset_path: str, tokenizer, max_seq_length: int = 512):
+def load_and_prepare_dataset(
+    dataset_path: str,
+    tokenizer,
+    max_seq_length: int = 256,
+    system_prompt_ratio: float = 0.5,
+    seed: int = 42,
+):
     path = Path(dataset_path)
     data = _load_chat_records(path)
     if not data:
         raise ValueError(f"학습할 대화 레코드가 없습니다: {dataset_path}")
 
+    # 일부 샘플은 시스템 프롬프트 없이(=베이스 Gemma 정체성으로 복귀하던 조건) 학습시켜서
+    # 시스템 프롬프트 유무와 무관하게 항상 미쿠로 답하도록 정체성을 각인시킨다.
+    rng = random.Random(seed)
+    n_with_system = 0
     formatted_data = []
     for item in data:
+        inject = rng.random() < system_prompt_ratio
+        if inject:
+            n_with_system += 1
         text = tokenizer.apply_chat_template(
-            format_messages(item),
+            format_messages(item, inject_system=inject),
             tokenize=False,
             add_generation_prompt=False,
         )
         formatted_data.append({"text": text})
+
+    print(
+        f"   시스템 프롬프트 주입: {n_with_system}/{len(data)} "
+        f"(목표 비율 {system_prompt_ratio:.0%}), 나머지는 프롬프트 없이 학습"
+    )
 
     dataset = Dataset.from_list(formatted_data)
 
@@ -118,13 +139,21 @@ def main() -> None:
     parser.add_argument("--model_name", type=str, default="models/Gemma4_12B")
     parser.add_argument("--dataset_path", type=str, default="datasets/miku_chat")
     parser.add_argument("--output_dir", type=str, default="models/outputs/miku_gemma4")
-    parser.add_argument("--num_epochs", type=int, default=3)
+    parser.add_argument("--num_epochs", type=int, default=2)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--grad_accum", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=2e-4)
-    parser.add_argument("--lora_r", type=int, default=16)
-    parser.add_argument("--lora_alpha", type=int, default=32)
-    parser.add_argument("--max_seq_length", type=int, default=512)
+    parser.add_argument("--lora_r", type=int, default=32)
+    parser.add_argument("--lora_alpha", type=int, default=64)
+    parser.add_argument("--max_seq_length", type=int, default=256)
+    parser.add_argument(
+        "--system_prompt_ratio",
+        type=float,
+        default=0.5,
+        help="학습 시 미쿠 시스템 프롬프트를 주입할 샘플 비율(0~1). "
+        "0.5면 절반은 프롬프트 없이 학습되어, 프롬프트가 없어도 미쿠 정체성을 유지한다. "
+        "0이면 항상 프롬프트 없이 학습.",
+    )
     parser.add_argument("--use_4bit", action="store_true", default=True)
     parser.add_argument("--no_4bit", action="store_false", dest="use_4bit")
     parser.add_argument(
@@ -235,6 +264,7 @@ def main() -> None:
         str(dataset_path),
         tokenizer,
         max_seq_length=args.max_seq_length,
+        system_prompt_ratio=args.system_prompt_ratio,
     )
     print(f"   학습 샘플 수: {len(train_dataset)}")
 
@@ -297,6 +327,7 @@ def main() -> None:
         "lora_r": args.lora_r,
         "lora_alpha": args.lora_alpha,
         "max_seq_length": args.max_seq_length,
+        "system_prompt_ratio": args.system_prompt_ratio,
         "use_4bit": args.use_4bit,
         "trained_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
