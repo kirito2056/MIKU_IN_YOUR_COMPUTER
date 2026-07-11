@@ -57,6 +57,15 @@ cmake --build build --config Release --target llama-quantize llama-export-lora -
 > 맥 배포 시에는 PC에서 만든 `.exe`를 쓸 수 없다. 맥에서 `brew install llama.cpp`
 > 또는 Ollama를 별도 설치한다. **GGUF 파일 자체는 플랫폼 독립적**이므로 그대로 복사.
 
+### 2.3. GPU 추론용 프리빌드 바이너리 (권장)
+
+추론(서빙)용은 직접 빌드 대신 **공식 릴리스 CUDA 바이너리**를 쓰는 게 간단하다 (CUDA Toolkit 불필요).
+
+- https://github.com/ggml-org/llama.cpp/releases 에서
+  `llama-<tag>-bin-win-cuda-13.3-x64.zip` + `cudart-llama-bin-win-cuda-13.3-x64.zip` 두 개를 받아
+  `llama.cpp/release-cuda/` 에 함께 압축 해제 (RTX 5080 = Blackwell → CUDA 13.x 빌드).
+- 여기 포함된 `llama-server.exe`, `llama-quantize.exe`를 그대로 사용한다.
+
 ---
 
 ## 3. 변환 단계 상세
@@ -107,9 +116,12 @@ python convert_lora_to_gguf.py "backend/models/outputs/miku_gemma4_v2" `
 | 파일 | 크기 | 보관 권장 여부 |
 | :--- | :--- | :--- |
 | `miku_base_f16.gguf` | 22.2GB | 다른 LoRA 버전 재변환 예정이면 보관, 아니면 삭제 |
-| `miku_lora_f16.gguf` | 0.12GB | 작으므로 보관 무방 |
-| `miku_merged_f16.gguf` | 22.2GB | 다른 양자화(Q5/Q8 등) 추가 생성 예정이면 보관 |
-| **`miku_gemma4_Q4_K_M.gguf`** | **6.87GB** | **최종 배포용 — 필수 보관** |
+| `miku_lora_f16.gguf` | 0.12GB | v2 어댑터 (구버전) |
+| `miku_merged_f16.gguf` | 22.2GB | v2 병합본 (구버전) — 삭제 가능 |
+| `miku_gemma4_Q4_K_M.gguf` | 6.87GB | v2 기반 (구버전) — **프롬프트 없으면 Gemma 정체성 노출**, 삭제 가능 |
+| `miku_lora_v4_f16.gguf` | 0.26GB | v4 어댑터 (r=32) |
+| `miku_merged_v4_f16.gguf` | 22.2GB | 다른 양자화(Q5/Q8 등) 추가 생성 예정이면 보관 |
+| **`miku_gemma4_v4_Q4_K_M.gguf`** | **6.87GB** | **최종 배포용(현역, 2026-07-12) — 필수 보관** |
 
 ---
 
@@ -154,7 +166,18 @@ ollama run miku
 
 ---
 
-## 7. 재학습 후 재변환 (요약)
+## 7. 백엔드 서빙 (llama-server)
+
+백엔드 기본 LLM 엔진은 llama-server다 (`services/llamacpp_service.py`, 2026-07-12 전환).
+
+- `python main.py` 실행 시 llama-server가 안 떠 있으면 **자동 기동** (GGUF v4, `-ngl 99 -c 4096`).
+- 실측 성능 (RTX 5080, Q4_K_M): **로드 ~5초, 생성 평균 93 tok/s**, WS 첫 토큰 0.09초.
+- env 설정: `LLAMA_SERVER_URL`(기본 `http://127.0.0.1:8080`), `LLAMA_GGUF_PATH`,
+  `LLAMA_SERVER_EXE`(기본: `llama.cpp/release-cuda/llama-server.exe` → 없으면 PATH의 `llama-server`),
+  `LLM_BACKEND=transformers` 로 기존 HF 4-bit 경로 폴백.
+- 맥에서는 `brew install llama.cpp` 후 GGUF만 복사하면 같은 백엔드 코드가 그대로 동작.
+
+## 8. 재학습 후 재변환 (요약)
 
 LoRA 어댑터만 새로 학습한 경우, 베이스 GGUF(`miku_base_f16.gguf`)는 재사용 가능하다.
 **②③④만** 새 어댑터 경로(`miku_gemma4_v3` 등)로 다시 실행하면 된다.

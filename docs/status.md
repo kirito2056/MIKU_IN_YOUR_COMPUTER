@@ -28,7 +28,8 @@
 - [x] **GGUF 배포 파이프라인**: 베이스→GGUF 변환, LoRA 병합(`llama-export-lora`), Q4_K_M 양자화(6.87GB)까지 확립. LM Studio(Windows)/Mac(Metal) 구동 확인 → `docs/ai/gguf_deployment.md`
 - [x] **런타임 모델 경로 정리**: 기본값을 베이스(`models/Gemma4_12B`) + LoRA v4(`models/outputs/miku_gemma4_v4`)로 통일 — 백엔드 기동 시 파인튜닝 모델 자동 로드 (env `LLM_MODEL_PATH`/`LORA_PATH`로 오버라이드, `LORA_PATH=""`면 베이스만)
 - [x] **구 Gemma 3 산출물 정리**: `Gemma_12B`(베이스), `miku_12B_merged`(병합본), `miku_lora_v1/v2`, 구 체크포인트 등 약 47GB 삭제 (2026-07-12). 현재 `models/`에는 Gemma4 베이스 + `outputs/miku_gemma4_v1~v4` + GGUF만 유지
-- [ ] **추론 엔진 결정**: 백엔드 서빙을 transformers 유지 vs llama.cpp(GGUF) 전환할지 결정 필요 (기존 ExLlamaV2 계획은 GGUF 파이프라인으로 사실상 대체)
+- [x] **추론 엔진 결정 → llama.cpp 전환 완료** (2026-07-12): `services/llamacpp_service.py` — llama-server(OpenAI 호환 API) 자동 기동 + SSE 스트리밍. 기본 백엔드가 GGUF v4 서빙 (env `LLM_BACKEND=transformers`로 폴백 가능). **로드 ~5초, 생성 평균 93 tok/s** (transformers 4-bit: 로드 수 분)
+- [x] **GGUF v4 재생성** (2026-07-12): 기존 Q4_K_M이 v2 어댑터 기반(프롬프트 없으면 Gemma 정체성 노출)이어서 v4로 ②③④ 재변환 → `miku_gemma4_v4_Q4_K_M.gguf`
 
 ### 3. 모델 파인튜닝 (Personality)
 - [x] **데이터셋 구축 파이프라인**: 상황별 9카테고리 × (chat/multiturn/paraphrased), 합성·패러프레이즈·반복제한(`cap_repetition`)·자연화(`naturalize_chat_data`) 스크립트 완비
@@ -36,7 +37,7 @@
 - [x] **병합·양자화**: `merge_lora.py` Gemma4 지원 + GGUF 변환·Q4_K_M 양자화 완료
 - [x] **정체성 검증 (v4)**: 성격 테스트 통과 (2026-07-12) — 시스템 프롬프트 **없이도** 미쿠 정체성 유지, "너 Gemma야?/구글이 만들었지?/Are you Gemma?" 전부 부정하고 미쿠로 응답. adversarial 데이터는 v4 학습에 미포함이었으나 `system_prompt_ratio 0.5`만으로 목표 달성
 - [ ] **(선택) v5 재학습**: adversarial + naturalize 데이터 반영 시 응답 다양성 개선 여지 (현재 v4는 학습 데이터 문장을 거의 그대로 재현하는 경향)
-- [ ] **백엔드 실기동 검증**: FastAPI 서버 기동 → WebSocket 대화로 end-to-end 확인 필요 (모델+어댑터 조합 자체는 검증 완료)
+- [x] **백엔드 실기동 검증** (2026-07-12): FastAPI + llama-server 조합으로 REST(`/api/chat` 0.2초) 및 WebSocket 스트리밍(첫 토큰 0.09초) end-to-end 확인, 시스템 프롬프트 유/무 모두 미쿠 정체성 유지
 
 ### 4. 음성 합성 (The Voice - GPT-SoVITS)
 - [x] **엔진 테스트**: `scripts/test_tts_stream.py` 작성 및 WebUI를 통한 동작 확인 완료
@@ -67,10 +68,9 @@
 2. ~~**대화형 UI + 백엔드 WebSocket 연동**~~ ✅ 완료 (2026-05-29)
 3. ~~**TTS 백엔드 파이프라인 통합 + 립싱크**~~ ✅ 완료 (2026-05-29)
 4. ~~**파인튜닝 (LoRA) 진행**~~ ✅ 완료 (2026-06, v1~v4 + GGUF 양자화)
-5. **파인튜닝 모델 런타임 연동**
-   - ~~백엔드 기본 모델을 파인튜닝 모델로 통일 (경로 불일치 정리)~~ ✅ 완료 (2026-07-12, 베이스 + LoRA v4)
-   - transformers 유지 vs llama.cpp(GGUF) 서빙 전환 결정
-   - 백엔드 기동 후 실대화로 미쿠 정체성 응답 검증
+5. ~~**파인튜닝 모델 런타임 연동**~~ ✅ 완료 (2026-07-12)
+   - 경로 통일 + llama.cpp(GGUF v4) 서빙 전환 + REST/WS 실기동 검증까지 완료
+   - 실행: `llama.cpp/release-cuda/llama-server.exe`는 백엔드가 자동 기동 (`python main.py`만 실행하면 됨)
 6. **정체성 강화 재학습 (v5)**
    - adversarial·naturalize 데이터 반영 → 시스템 프롬프트 없이도 미쿠 정체성 유지
    - 재변환은 `docs/ai/gguf_deployment.md` §7 (②③④만 재실행)
