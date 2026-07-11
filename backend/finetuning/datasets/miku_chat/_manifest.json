@@ -2,7 +2,7 @@
   "source": "miku_personality_chat.json",
   "folders": {
     "care_comfort": 170,
-    "identity_relation": 186,
+    "identity_relation": 194,
     "playful_daily": 280,
     "safety_intrusion": 122,
     "sensory_io": 151,
@@ -33,5 +33,9 @@
     "tech_coding": 0,
     "wellness_habits": 0,
     "world_system": 0
-  }
+  },
+  "adversarial": {
+    "identity_relation": 36
+  },
+  "adversarial_note": "Gemma/구글/제미니/일반 LLM 라벨을 부정하고 미쿠 정체성을 주장하는 반례. system_prompt_ratio<1 학습과 함께 시스템 프롬프트 없이도 미쿠로 답하게 만든다."
 }

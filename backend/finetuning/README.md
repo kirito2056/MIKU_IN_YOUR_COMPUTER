@@ -30,7 +30,7 @@ cd backend/finetuning
 python train_lora_gemma4.py \
     --model_name models/Gemma4_12B \
     --dataset_path datasets/miku_chat \
-    --num_epochs 3 \
+    --num_epochs 2 \
     --use_4bit
 ```
 
@@ -86,6 +86,7 @@ python finetuning/test_model.py \
 - `generate_multiturn_data.py`: 맥락이 이어지는 멀티턴 대화를 `datasets/miku_chat/<상황>/multiturn.json` 으로 생성
 - `generate_paraphrase_data.py`: 로컬 LLM으로 의도/페르소나 보존 패러프레이즈를 만들어 `datasets/miku_chat/<상황>/paraphrased.json` 으로 저장. 같은 의도 그룹 안에서만 조합해 미스매치 방지. 모델 없이 검증하려면 `--self-test`
 - `cap_repetition.py`: 동일 응답 과편중(mode collapse 위험)을 `--cap N` 으로 제한. 자를 때 서로 다른 user 발화를 우선 보존. `--dry-run` 으로 분포만 확인 가능
+- `naturalize_chat_data.py`: 딱딱한/반복 assistant 응답을 자연스러운 변형으로 분산. `--add-missing` 으로 보고싶어 등 누락 쌍 추가
 - `merge_datasets.py`: 커스텀 JSON 병합 (`--into` 로 샤드에 이어 붙이기 또는 `--out` 단일 파일)
 - `train_lora_gemma4.py`: Gemma 4 12B QLoRA 파인튜닝
 - `train_lora.py`: Gemma 3 LoRA 파인튜닝 (레거시)
