@@ -1,6 +1,6 @@
 # MIKU IN YOUR COMPUTER - Documentation
 
-이 프로젝트는 데스크톱에 상주하며 사용자와 교감하고 성장하는 AI 컴패니언, **Hatsune Miku**를 구현하기 위한 문서 저장소입니다.
+이 프로젝트는 데스크톱에 상주하며 사용자와 교감하고 성장하는 AI **Hatsune Miku**를 구현하려고 하긴 한데 그냥 내아내긴 함 ㅇㅇ
 
 ## 📂 문서 구조
 
@@ -8,7 +8,7 @@
 |------|------|-----------|
 | **[planning](./planning/)** | **기획 & 설계** | 프로젝트 개요, 성격 정의, 전체 아키텍처, 하드웨어 전략, 버전 관리, 세부 결정 사항 |
 | **[ai](./ai/)** | **AI 파이프라인** | Gemma 4 12B(LLM), 비전, 음성, 학습 로직, 비상장치, [미쿠 Chat 학습 데이터셋 구조](./ai/miku_chat_dataset.md) |
-| **[frontend](./frontend/)** | **클라이언트 (UI)** | Electron 오버레이, 3D 애니메이션(SAO/의자춤), 연출 |
+| **[frontend](./frontend/)** | **클라이언트 (UI)** | Electron 오버레이, 3D 애니메이션, 연출 |
 | **[backend](./backend/)** | **서버 & DB** | FastAPI 명세, DB 스키마(기억/지식그래프), 에러 로깅, 모니터링, 테스트 전략, 개발 도구, 벡터 검색 최적화, 성능 최적화 |
 | **[plugins](./plugins/)** | **플러그인** | 확장 시스템 아키텍처, SDK |
 | **[deployment](./deployment/)** | **배포 & 환경** | 로컬 설치 가이드, 하드웨어 요구사항 |
@@ -17,11 +17,3 @@
 ---
 
 *Last Updated: 2026-07-12*
-
-## 📝 최근 추가 문서
-
-- **GGUF 변환·배포** (`ai/gguf_deployment.md`): LoRA 병합 → Q4_K_M 양자화 → llama.cpp/Ollama/LM Studio 구동 워크플로
-- **개발 현황 트래킹** (`status.md`): 기획 대비 구현 진척도 및 다음 마일스톤 관리
-- **모바일 플랫폼 기획** (`planning/09_mobile_platform.md`): iOS/Android Remote Client, 외부 접속(nginx), 갤럭시 워치 역할
-- **벡터 검색 최적화** (`backend/vector_search_optimization.md`): pgvector 인덱스 전략, 검색 알고리즘, 성능 최적화
-- **성능 최적화 전략** (`backend/performance_optimization.md`): 캐싱, 배치 처리, GPU 관리, 쿼리 최적화
