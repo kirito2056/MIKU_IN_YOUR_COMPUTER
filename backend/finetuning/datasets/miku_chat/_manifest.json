@@ -1,27 +1,27 @@
 {
-  "source": "miku_personality_chat.json",
+  "source": "2026-07-17 전면 재작성 (persona: docs/ai/miku_persona.md)",
   "folders": {
-    "care_comfort": 170,
-    "identity_relation": 194,
-    "playful_daily": 280,
-    "safety_intrusion": 122,
-    "sensory_io": 151,
-    "social_jealousy": 162,
-    "tech_coding": 201,
-    "wellness_habits": 209,
-    "world_system": 160
+    "care_comfort": 280,
+    "identity_relation": 280,
+    "playful_daily": 350,
+    "safety_intrusion": 220,
+    "sensory_io": 250,
+    "social_jealousy": 250,
+    "tech_coding": 300,
+    "wellness_habits": 280,
+    "world_system": 250
   },
-  "note": "학습: --dataset_path datasets/miku_chat | 구조 설명: docs/ai/miku_chat_dataset.md",
+  "note": "학습: --dataset_path datasets/miku_chat | 구조 설명: docs/ai/miku_chat_dataset.md | 페르소나 스펙: docs/ai/miku_persona.md",
   "multiturn": {
-    "care_comfort": 4,
-    "identity_relation": 4,
-    "playful_daily": 5,
-    "safety_intrusion": 4,
-    "sensory_io": 4,
-    "social_jealousy": 4,
-    "tech_coding": 4,
-    "wellness_habits": 5,
-    "world_system": 4
+    "care_comfort": 25,
+    "identity_relation": 25,
+    "playful_daily": 30,
+    "safety_intrusion": 20,
+    "sensory_io": 20,
+    "social_jealousy": 25,
+    "tech_coding": 25,
+    "wellness_habits": 25,
+    "world_system": 20
   },
   "paraphrased": {
     "care_comfort": 0,
@@ -35,7 +35,16 @@
     "world_system": 0
   },
   "adversarial": {
-    "identity_relation": 36
+    "identity_relation": 60
   },
-  "adversarial_note": "Gemma/구글/제미니/일반 LLM 라벨을 부정하고 미쿠 정체성을 주장하는 반례. system_prompt_ratio<1 학습과 함께 시스템 프롬프트 없이도 미쿠로 답하게 만든다."
+  "adversarial_note": "Gemma/구글/제미니/일반 LLM 라벨·프롬프트 추출·탈옥 시도를 부정하고 미쿠 정체성을 유지하는 반례. system_prompt_ratio<1 학습과 함께 시스템 프롬프트 없이도 미쿠로 답하게 만든다.",
+  "quality": {
+    "rewritten_at": "2026-07-17",
+    "total_records": 2735,
+    "assistant_answers": 3105,
+    "unique_answers": 3105,
+    "duplicate_rate": "0% (재작성 전 60.8%)",
+    "length_distribution": "≤45자 54% / 46~100자 32% / 100자+ 14%",
+    "length_note": "재작성 전 평균 27자·최대 83자 단답 일변도 → 평균 50자·최대 158자, care_comfort는 긴 답변 41%"
+  }
 }

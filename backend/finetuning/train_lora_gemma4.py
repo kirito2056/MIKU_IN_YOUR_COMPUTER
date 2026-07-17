@@ -74,7 +74,7 @@ def format_messages(example: dict, inject_system: bool = True) -> list:
 def load_and_prepare_dataset(
     dataset_path: str,
     tokenizer,
-    max_seq_length: int = 256,
+    max_seq_length: int = 512,
     system_prompt_ratio: float = 0.5,
     seed: int = 42,
 ):
@@ -145,7 +145,7 @@ def main() -> None:
     parser.add_argument("--learning_rate", type=float, default=2e-4)
     parser.add_argument("--lora_r", type=int, default=32)
     parser.add_argument("--lora_alpha", type=int, default=64)
-    parser.add_argument("--max_seq_length", type=int, default=256)
+    parser.add_argument("--max_seq_length", type=int, default=512)
     parser.add_argument(
         "--system_prompt_ratio",
         type=float,
