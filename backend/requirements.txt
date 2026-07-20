@@ -13,6 +13,10 @@ accelerate>=0.24.0
 bitsandbytes>=0.41.0
 trl>=0.7.0
 
+# Vision (Eye1: 웹캠 행동 분석)
+mediapipe>=0.10.30
+opencv-python>=4.10
+
 # 유틸리티
 requests
 tqdm
