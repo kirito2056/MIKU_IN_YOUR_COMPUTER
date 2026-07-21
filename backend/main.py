@@ -15,7 +15,6 @@ from fastapi.middleware.cors import CORSMiddleware
 # 환경 변수 로드 (services import 전에 실행)
 load_dotenv()
 
-from services.llm_service import get_llm_service
 from services.llamacpp_service import get_llamacpp_service
 from services.tts_service import get_tts_service
 from services.vision_service import get_vision_service, VisionServiceError
@@ -44,6 +43,10 @@ async def lifespan(app: FastAPI):
             print("🚀 LLM 서비스 초기화 중... (llama.cpp)")
             app.state.llm_service = get_llamacpp_service()
         else:
+            # transformers 백엔드에서만 torch/transformers를 로드한다.
+            # (llamacpp 기본 경로에서는 torch 미설치여도 서버가 뜬다.)
+            from services.llm_service import get_llm_service
+
             model_path = os.getenv("LLM_MODEL_PATH", "models/Gemma4_12B")
             lora_path = os.getenv("LORA_PATH", "models/outputs/miku_gemma4_v4")
             use_4bit = os.getenv("USE_4BIT", "true").lower() == "true"
