@@ -1,25 +1,28 @@
-fastapi
-uvicorn
-python-multipart
-websockets
-numpy
+fastapi==0.128.8
+uvicorn==0.40.0
+python-multipart==0.0.22
+websockets==16.0
+numpy==2.2.6
 
 # AI & ML 라이브러리
-torch>=2.0.0
-transformers>=4.35.0
-peft>=0.7.0
-datasets>=2.14.0
-accelerate>=0.24.0
-bitsandbytes>=0.41.0
-trl>=0.7.0
+# torch: RTX 5080(sm_120)은 PyPI 기본 휠이 아닌 cu128 빌드 필요.
+#   pip install torch==2.10.0+cu128 torchvision==0.25.0+cu128 torchaudio==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+# transformers: Gemma4_12B 체크포인트(gemma4_unified)는 5.10 미만에서 로드 실패.
+torch==2.10.0
+transformers==5.10.4
+peft==0.18.1
+datasets==4.5.0
+accelerate==1.12.0
+bitsandbytes==0.49.1
+trl==0.28.0
 
 # Vision (Eye1: 웹캠 행동 분석)
-mediapipe>=0.10.30
-opencv-python>=4.10
+mediapipe==0.10.35
+opencv-python==5.0.0.93
 
 # 유틸리티
-requests
-tqdm
-pydantic
-python-dotenv
+requests==2.32.5
+tqdm==4.67.3
+pydantic==2.12.5
+python-dotenv==1.2.1
 psycopg2-binary>=2.9.9

@@ -34,7 +34,7 @@ MIKU_SYSTEM_PROMPT = (
 )
 
 DEFAULT_SERVER_URL = "http://127.0.0.1:8080"
-DEFAULT_GGUF_PATH = "models/miku_gemma4_v4_Q4_K_M.gguf"
+DEFAULT_GGUF_PATH = "models/miku_gemma4_v5_Q4_K_M.gguf"
 
 
 class LlamaCppServiceError(Exception):
